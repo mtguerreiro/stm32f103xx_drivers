@@ -67,11 +67,5 @@ uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes, uint32_
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
 //=============================
 
-//=============================
-/*--------- Structs ---------*/
-//=============================
-//-----------------------------
-//-----------------------------
-//=============================
 
 #endif /* UART_H_ */

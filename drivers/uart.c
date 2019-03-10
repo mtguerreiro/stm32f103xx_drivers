@@ -47,9 +47,9 @@ static uint8_t uartQueueIndex(USART_TypeDef *uart);
 //-----------------------------
 uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud){
 
-	uartHWInitialize(uart, baud);
+	if( uartHWInitialize(uart, baud) ) return 1;
 
-	uartSWInitialize(uart);
+	if( uartSWInitialize(uart) ) return 2;
 
 	return 0;
 }
@@ -417,8 +417,6 @@ void USART3_IRQHandler(void){
 
 	uint8_t txData, rxData;
 	uint32_t usartStatus;
-
-	gpioOutputToggle(GPIOC, GPIO_P13);
 
 	usartStatus = USART3->SR;
 

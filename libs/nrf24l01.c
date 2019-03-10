@@ -49,7 +49,7 @@ uint8_t nrf24l01Initialize(void){
 
 	uint8_t buffer;
 
-	if( spiInitialize(SPI_1, SPI_CLK_DIV_128) ) return 1;
+	if( spiInitialize(SPI1, SPI_CLK_DIV_128) ) return 1;
 
 	nrf24l01PortInitialize();
 
@@ -77,12 +77,12 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &command, 1, 0);
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWrite(SPI1, &command, 1, 0);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
-	if( spiRead(SPI_1, status, 0) ) return 1;
+	if( spiRead(SPI1, status, 0) ) return 1;
 
 	return 0;
 }
@@ -120,12 +120,12 @@ uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 	configNRF24L01_CSN_RESET;
 
 	command = 0xA0;
-	spiWrite(SPI_1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1, 0);
 	k = size;
 	while(k--){
-		spiWrite(SPI_1, buffer++, 1, 0);
+		spiWrite(SPI1, buffer++, 1, 0);
 	}
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -136,7 +136,7 @@ uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 	 */
 	k = (uint8_t)(size + 1U);
 	while(k--){
-		if( spiRead(SPI_1, &dummy, 0) ) return 2;
+		if( spiRead(SPI1, &dummy, 0) ) return 2;
 	}
 
 	configNRF24L01_CE_RESET;
@@ -153,12 +153,12 @@ uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 	configNRF24L01_CSN_RESET;
 
 	command = 0x61;
-	spiWrite(SPI_1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1, 0);
 	k = size;
 	while(k--){
-		spiWrite(SPI_1, &dummy, 1, 0);
+		spiWrite(SPI1, &dummy, 1, 0);
 	}
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -168,10 +168,10 @@ uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 	 * byte for each byte transmitted. We clear the first one and
 	 * save the rest.
 	 */
-	if( spiRead(SPI_1, &dummy, 0) ) return 2;
+	if( spiRead(SPI1, &dummy, 0) ) return 2;
 	k = size;
 	while(k--){
-		if( spiRead(SPI_1, buffer++, 0) ) return 3;
+		if( spiRead(SPI1, buffer++, 0) ) return 3;
 	}
 
 //	configNRF24L01_CE_RESET;
@@ -229,12 +229,12 @@ uint8_t nrf24l01FlushTX(void){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &command, 1, 0);
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWrite(SPI1, &command, 1, 0);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
-	if( spiRead(SPI_1, &command, 0) ) return 1;
+	if( spiRead(SPI1, &command, 0) ) return 1;
 
 	return 0;
 }
@@ -247,12 +247,12 @@ uint8_t nrf24l01FlushRX(void){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &command, 1, 0);
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWrite(SPI1, &command, 1, 0);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
-	if( spiRead(SPI_1, &command, 0) ) return 1;
+	if( spiRead(SPI1, &command, 0) ) return 1;
 
 	return 0;
 }
@@ -289,9 +289,9 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &reg, 1, 0);
-	spiWrite(SPI_1, &dummy, 1, 0);
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWrite(SPI1, &reg, 1, 0);
+	spiWrite(SPI1, &dummy, 1, 0);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -303,8 +303,8 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 	 * overwrite it with the second byte, which should be the data we
 	 * are looking for.
 	 */
-	if( spiRead(SPI_1, buffer, 0) ) return 1;
-	if( spiRead(SPI_1, buffer, 0) ) return 2;
+	if( spiRead(SPI1, buffer, 0) ) return 1;
+	if( spiRead(SPI1, buffer, 0) ) return 2;
 
 	return 0;
 }
@@ -316,12 +316,12 @@ static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &reg, 1, 0);
+	spiWrite(SPI1, &reg, 1, 0);
 	k = 5;
 	while(k--){
-		spiWrite(SPI_1, &dummy, 1, 0);
+		spiWrite(SPI1, &dummy, 1, 0);
 	}
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -333,10 +333,10 @@ static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 	 * overwrite it with the 2~5 bytes, which should be the data we
 	 * are looking for.
 	 */
-	if( spiRead(SPI_1, buffer, 0) ) return 1;
+	if( spiRead(SPI1, buffer, 0) ) return 1;
 	k = 5;
 	while(k--){
-		if( spiRead(SPI_1, &buffer[k], 0) ) return 2;
+		if( spiRead(SPI1, &buffer[k], 0) ) return 2;
 	}
 
 	return 0;
@@ -350,9 +350,9 @@ static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &reg, 1, 0);
-	spiWrite(SPI_1, buffer, 1, 0);
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWrite(SPI1, &reg, 1, 0);
+	spiWrite(SPI1, buffer, 1, 0);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -361,8 +361,8 @@ static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 	 * bytes. The first one is the status register. The second byte
 	 * is undefined. We just clear them.
 	 */
-	if( spiRead(SPI_1, &dummy, 0) ) return 1;
-	if( spiRead(SPI_1, &dummy, 0) ) return 2;
+	if( spiRead(SPI1, &dummy, 0) ) return 1;
+	if( spiRead(SPI1, &dummy, 0) ) return 2;
 
 	return 0;
 }
@@ -376,12 +376,12 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI_1, &reg, 1, 0);
+	spiWrite(SPI1, &reg, 1, 0);
 	k = 5;
 	while(k--){
-		spiWrite(SPI_1, &buffer[k], 1, 0);
+		spiWrite(SPI1, &buffer[k], 1, 0);
 	}
-	spiWaitTX(SPI_1, 0xFFFF);
+	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
 
@@ -392,7 +392,7 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 	 */
 	k = 6;
 	while(k--){
-		if( spiRead(SPI_1, &dummy, 0) ) return 2;
+		if( spiRead(SPI1, &dummy, 0) ) return 2;
 	}
 
 	return 0;

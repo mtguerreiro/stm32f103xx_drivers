@@ -47,10 +47,10 @@
 //=============================
 /*-------- Functions --------*/
 //=============================
-uint8_t spiInitialize(uint32_t spi, uint16_t clockDiv);
-uint8_t spiWrite(uint32_t spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
-uint8_t spiRead(uint32_t spi, uint8_t *buffer, uint32_t waitcycles);
-uint8_t spiWaitTX(uint32_t spi, uint32_t waitcycles);
+uint8_t spiInitialize(SPI_TypeDef *spi, uint16_t clockDiv);
+uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
+uint8_t spiRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t waitcycles);
+uint8_t spiWaitTX(SPI_TypeDef *spi, uint32_t waitcycles);
 //=============================
 
 //=============================

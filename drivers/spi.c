@@ -35,20 +35,20 @@ QueueHandle_t spiRXQueue[3];
 //=============================
 /*-------- Prototypes -------*/
 //=============================
-static uint8_t spiHWInitialize(uint32_t spi, uint16_t clockDiv);
-static uint8_t spiSWInitialize(uint32_t spi);
-static void spiTriggerTransmission(uint32_t spi);
-static void spiClockEnable(uint32_t spi);
-static void spiPinsSet(uint32_t spi);
-static void spiPrioSet(uint32_t spi);
-static uint8_t spiQueueIndex(uint32_t spi);
+static uint8_t spiHWInitialize(SPI_TypeDef *spi, uint16_t clockDiv);
+static uint8_t spiSWInitialize(SPI_TypeDef *spi);
+static void spiTriggerTransmission(SPI_TypeDef *spi);
+static void spiClockEnable(SPI_TypeDef *spi);
+static void spiPinsSet(SPI_TypeDef *spi);
+static void spiPrioSet(SPI_TypeDef *spi);
+static uint8_t spiQueueIndex(SPI_TypeDef *spi);
 //=============================
 
 //=============================
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-uint8_t spiInitialize(uint32_t spi, uint16_t clockDiv){
+uint8_t spiInitialize(SPI_TypeDef *spi, uint16_t clockDiv){
 
 	if( spiHWInitialize(spi, clockDiv) ) return 1;
 
@@ -57,7 +57,7 @@ uint8_t spiInitialize(uint32_t spi, uint16_t clockDiv){
 	return 0;
 }
 //-----------------------------
-uint8_t spiWrite(uint32_t spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles){
+uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles){
 
 	uint8_t qidx;
 
@@ -77,7 +77,7 @@ uint8_t spiWrite(uint32_t spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcy
 	return 0;
 }
 //-----------------------------
-uint8_t spiRead(uint32_t spi, uint8_t *buffer, uint32_t waitcycles){
+uint8_t spiRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t waitcycles){
 
 	uint8_t qidx;
 
@@ -88,11 +88,9 @@ uint8_t spiRead(uint32_t spi, uint8_t *buffer, uint32_t waitcycles){
 	return 0;
 }
 //-----------------------------
-uint8_t spiWaitTX(uint32_t spi, uint32_t waitcycles){
+uint8_t spiWaitTX(SPI_TypeDef *spi, uint32_t waitcycles){
 
-	SPI_TypeDef *_spi = (SPI_TypeDef *)spi;
-
-	while((_spi->SR & SPI_SR_BSY) && (--waitcycles));
+	while((spi->SR & SPI_SR_BSY) && (--waitcycles));
 
 	if(!waitcycles) return 1;
 
@@ -105,36 +103,35 @@ uint8_t spiWaitTX(uint32_t spi, uint32_t waitcycles){
 /*----- Static functions ----*/
 //=============================
 //-----------------------------
-static uint8_t spiHWInitialize(uint32_t spi, uint16_t clockDiv){
-
-	SPI_TypeDef *_spi = (SPI_TypeDef *)spi;
+static uint8_t spiHWInitialize(SPI_TypeDef *spi, uint16_t clockDiv){
 
 	spiClockEnable(spi);
 
 	spiPinsSet(spi);
 
 	//_spi->CR1 = SPI_CR1_LSBFIRST | (SPI_CR1_BR_2); // fpclk/32 -> 1125000 bps
-	_spi->CR1 = (uint16_t)(clockDiv << 3U) | SPI_CR1_MSTR; // fpclk/32 -> 1125000 bps
+	spi->CR1 = (uint16_t)(clockDiv << 3U) | SPI_CR1_MSTR; // fpclk/32 -> 1125000 bps
 
-	_spi->CR2 = SPI_CR2_RXNEIE;
+	spi->CR2 = SPI_CR2_RXNEIE;
 
-	_spi->CR1 |= SPI_CR1_SPE;
+	spi->CR1 |= SPI_CR1_SPE;
 
 	spiPrioSet(spi);
 
 	return 0;
 }
 //-----------------------------
-static uint8_t spiSWInitialize(uint32_t spi){
+static uint8_t spiSWInitialize(SPI_TypeDef *spi){
 
+	uint32_t _spi = (uint32_t)spi;
 	uint8_t qidx = 0;
 	uint32_t qTXSize = 0;
 	uint32_t qRXSize = 0;
 
-	switch(spi){
+	switch(_spi){
 
 #if (configSPI1_ENABLED == 1)
-	case SPI_1:
+	case SPI1_BASE:
 		qidx = 0;
 		qTXSize = configSPI1_TXQ_SIZE;
 		qRXSize = configSPI1_RXQ_SIZE;
@@ -142,7 +139,7 @@ static uint8_t spiSWInitialize(uint32_t spi){
 #endif
 
 #if (configSPI2_ENABLED == 1)
-	case SPI_2:
+	case SPI2_BASE:
 		qidx = 1;
 		qTXSize = configSPI2_TXQ_SIZE;
 		qRXSize = configSPI2_RXQ_SIZE;
@@ -150,7 +147,7 @@ static uint8_t spiSWInitialize(uint32_t spi){
 #endif
 
 #if (configSPI3_ENABLED == 1)
-	case SPI_3:
+	case SPI3_BASE:
 		qidx = 2;
 		qTXSize = configSPI3_TXQ_SIZE;
 		qRXSize = configSPI3_RXQ_SIZE;
@@ -170,31 +167,31 @@ static uint8_t spiSWInitialize(uint32_t spi){
 	return 0;
 }
 //-----------------------------
-static void spiTriggerTransmission(uint32_t spi){
+static void spiTriggerTransmission(SPI_TypeDef *spi){
 
-	SPI_TypeDef *_spi = (SPI_TypeDef *)spi;
-
-	_spi->CR2 |= SPI_CR2_TXEIE;
+	spi->CR2 |= SPI_CR2_TXEIE;
 }
 //-----------------------------
-static void spiClockEnable(uint32_t spi){
+static void spiClockEnable(SPI_TypeDef *spi){
 
-	switch(spi){
+	uint32_t _spi = (uint32_t)spi;
+
+	switch(_spi){
 
 #if (configSPI1_ENABLED == 1)
-	case SPI_1:
+	case SPI1_BASE:
 		RCC->APB2ENR |= (uint32_t)(1U << 12);
 		break;
 #endif
 
 #if (configSPI2_ENABLED == 1)
-	case SPI_2:
+	case SPI2_BASE:
 		RCC->APB1ENR |= (uint32_t)(1U << 14);
 		break;
 #endif
 
 #if (configSPI3_ENABLED == 1)
-	case SPI_3:
+	case SPI3_BASE:
 		RCC->APB1ENR |= (uint32_t)(1U << 15);
 		break;
 #endif
@@ -204,18 +201,19 @@ static void spiClockEnable(uint32_t spi){
 	}
 }
 //-----------------------------
-static void spiPinsSet(uint32_t spi){
+static void spiPinsSet(SPI_TypeDef *spi){
 
 	GPIO_TypeDef *port = 0;
+	uint32_t _spi = (uint32_t)spi;
 
 	uint16_t mosi = 0;
 	uint16_t ck = 0;
 	uint16_t miso = 0;
 
-	switch(spi){
+	switch(_spi){
 
 #if (configSPI1_ENABLED == 1)
-	case SPI_1:
+	case SPI1_BASE:
 		port = GPIOA;
 		mosi = GPIO_P7;
 		miso = GPIO_P6;
@@ -224,20 +222,20 @@ static void spiPinsSet(uint32_t spi){
 #endif
 
 #if (configSPI2_ENABLED == 1)
-	case SPI_2:
-		port = GPIO_PB;
-		mosi = GPIO_PB_15;
-		miso = GPIO_PB_14;
-		ck = GPIO_PB_13;
+	case SPI2_BASE:
+		port = GPIOB;
+		mosi = GPIO_P15;
+		miso = GPIO_P14;
+		ck = GPIO_P13;
 		break;
 #endif
 
 #if (configSPI3_ENABLED == 1)
-	case SPI_3:
-		port = GPIO_PB;
-		mosi = GPIO_PB_5;
-		miso = GPIO_PB_4;
-		ck = GPIO_PB_3;
+	case SPI3_BASE:
+		port = GPIOB;
+		mosi = GPIO_P5;
+		miso = GPIO_P4;
+		ck = GPIO_P3;
 		break;
 #endif
 
@@ -250,27 +248,29 @@ static void spiPinsSet(uint32_t spi){
 	gpioConfig(port, miso, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
 }
 //-----------------------------
-static void spiPrioSet(uint32_t spi){
+static void spiPrioSet(SPI_TypeDef *spi){
 
+	uint32_t _spi = (uint32_t)spi;
 	uint32_t irqn = 0;
 
-	switch(spi){
+	switch(_spi){
 
 #if (configSPI1_ENABLED == 1)
-	case SPI_1:
+	case SPI1_BASE:
 		irqn = SPI1_IRQn;
 		break;
 #endif
 
 #if (configSPI2_ENABLED == 1)
-	case SPI_2:
+	case SPI2_BASE:
 		irqn = SPI2_IRQn;
 		break;
 #endif
 
 #if (configSPI3_ENABLED == 1)
-	case SPI_3:
-		irqn = SPI3_IRQn;
+	case SPI3_BASE:
+		irqn = 1;
+		//irqn = SPI3_IRQn;
 		break;
 #endif
 
@@ -282,26 +282,28 @@ static void spiPrioSet(uint32_t spi){
 	NVIC_EnableIRQ(irqn);
 }
 //-----------------------------
-static uint8_t spiQueueIndex(uint32_t spi){
+static uint8_t spiQueueIndex(SPI_TypeDef *spi){
+
+	uint32_t _spi = (uint32_t)spi;
 
 	uint8_t qidx = 0;
 
-	switch(spi){
+	switch(_spi){
 
 #if (configSPI1_ENABLED == 1)
-	case SPI_1:
+	case SPI1_BASE:
 		qidx = 0;
 		break;
 #endif
 
 #if (configSPI2_ENABLED == 1)
-	case SPI_2:
+	case SPI2_BASE:
 		qidx = 1;
 		break;
 #endif
 
 #if (configSPI3_ENABLED == 1)
-	case SPI_3:
+	case SPI3_BASE:
 		qidx = 2;
 		break;
 #endif

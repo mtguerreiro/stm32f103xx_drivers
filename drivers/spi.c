@@ -10,7 +10,7 @@
 //=============================
 #include "spi.h"
 
-/* Device */
+/* Drivers */
 #include "gpio.h"
 
 /* Kernel */
@@ -206,7 +206,7 @@ static void spiClockEnable(uint32_t spi){
 //-----------------------------
 static void spiPinsSet(uint32_t spi){
 
-	uint32_t port = 0;
+	GPIO_TypeDef *port = 0;
 
 	uint16_t mosi = 0;
 	uint16_t ck = 0;
@@ -216,10 +216,10 @@ static void spiPinsSet(uint32_t spi){
 
 #if (configSPI1_ENABLED == 1)
 	case SPI_1:
-		port = GPIO_PA;
-		mosi = GPIO_PA_7;
-		miso = GPIO_PA_6;
-		ck = GPIO_PA_5;
+		port = GPIOA;
+		mosi = GPIO_P7;
+		miso = GPIO_P6;
+		ck = GPIO_P5;
 		break;
 #endif
 
@@ -246,12 +246,8 @@ static void spiPinsSet(uint32_t spi){
 	}
 
 	gpioPortEnable(port);
-
-	gpioMode(port, GPIO_MODE_OUTPUT_10MHZ, mosi | ck);
-	gpioConfig(port, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL, mosi | ck);
-
-	gpioMode(port, GPIO_MODE_INPUT, miso);
-	gpioConfig(port, GPIO_CONFIG_INPUT_FLOAT_INPUT, miso);
+	gpioConfig(port, mosi | ck, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL);
+	gpioConfig(port, miso, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
 }
 //-----------------------------
 static void spiPrioSet(uint32_t spi){

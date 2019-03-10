@@ -16,6 +16,8 @@
  *		- Melhorar uso das filas (criar somente a quantidade
  *		necessária)
  *		- "Yield from interrupt" individual
+ *		- Pensar em solução para o problema ao tentar enviar uma quantidade
+ *		de bytes maior do que o espaço disponível na fila
  */
 
 #ifndef UART_H_
@@ -63,7 +65,7 @@
 /*-------- Functions --------*/
 //=============================
 uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud);
-uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
+uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
 //=============================
 

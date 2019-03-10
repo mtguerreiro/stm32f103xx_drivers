@@ -54,19 +54,18 @@ uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud){
 	return 0;
 }
 //-----------------------------
-uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles){
+uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
 
 	uint8_t qidx;
+	uint32_t queueSize;
 
 	qidx = uartQueueIndex(uart);
 
-	//	uint32_t queueSize;
-//	queueSize = (uint32_t)uxQueueSpacesAvailable(uartTXQueue);
-//
-//	if(nbytes > queueSize) return 1;
+	queueSize = (uint32_t)uxQueueSpacesAvailable(uartTXQueue[qidx]);
+	if(nbytes > queueSize) return 1;
 
 	while(nbytes--){
-		if( xQueueSendToBack(uartTXQueue[qidx], buffer++, waitcycles) != pdTRUE ) return 2;
+		if( xQueueSendToBack(uartTXQueue[qidx], buffer++, 0) != pdTRUE ) return 2;
 	}
 
 	uartTriggerTransmission(uart);

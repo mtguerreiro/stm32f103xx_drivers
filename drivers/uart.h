@@ -36,9 +36,9 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configUART1_ENABLED			0
+#define configUART1_ENABLED			1
 #define configUART2_ENABLED			0
-#define configUART3_ENABLED			1
+#define configUART3_ENABLED			0
 #define configUART4_ENABLED			0
 #define configUART5_ENABLED			0
 
@@ -66,6 +66,7 @@
 //=============================
 uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud);
 uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
+uint8_t uartWriteString(USART_TypeDef *uart, void *str);
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
 //=============================
 

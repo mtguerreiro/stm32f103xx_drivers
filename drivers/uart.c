@@ -73,6 +73,32 @@ uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
 	return 0;
 }
 //-----------------------------
+uint8_t uartWriteString(USART_TypeDef *uart, void *str){
+
+	uint8_t qidx;
+	uint16_t strSize;
+	uint32_t queueSize;
+	uint8_t *buffer = (uint8_t *)str;
+
+	qidx = uartQueueIndex(uart);
+
+	strSize = 0;
+	while(*buffer++) strSize++;
+
+	queueSize = (uint32_t)uxQueueSpacesAvailable(uartTXQueue[qidx]);
+	if(strSize > queueSize) return 1;
+
+	buffer -= (strSize + 1);
+
+	while(*buffer){
+		if( xQueueSendToBack(uartTXQueue[qidx], buffer++, 0) != pdTRUE ) return 2;
+	}
+
+	uartTriggerTransmission(uart);
+
+	return 0;
+}
+//-----------------------------
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles){
 
 	uint8_t qidx;

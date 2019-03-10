@@ -35,19 +35,9 @@ QueueHandle_t uartRXQueue[5];
 //=============================
 /*-------- Prototypes -------*/
 //=============================
-//static uint8_t uartHWInitialize(uint32_t uart);
-//static uint8_t uartSWInitialize(uint32_t uart);
-//static void uartTriggerTransmission(uint32_t uart);
-//static void uartClockEnable(uint32_t uart);
-//static void uartPinsSet(uint32_t uart);
-//static void uartPrioSet(uint32_t uart);
-//static uint8_t uartQueueIndex(uint32_t uart);
-static uint8_t uartHWInitialize(USART_TypeDef *uart);
+static uint8_t uartHWInitialize(USART_TypeDef *uart, uint32_t baud);
 static uint8_t uartSWInitialize(USART_TypeDef *uart);
 static void uartTriggerTransmission(USART_TypeDef *uart);
-//static void uartClockEnable(USART_TypeDef *uart);
-//static void uartPinsSet(USART_TypeDef *uart);
-//static void uartPrioSet(USART_TypeDef *uart);
 static uint8_t uartQueueIndex(USART_TypeDef *uart);
 //=============================
 
@@ -55,9 +45,9 @@ static uint8_t uartQueueIndex(USART_TypeDef *uart);
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-uint8_t uartInitialize(USART_TypeDef *uart){
+uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud){
 
-	uartHWInitialize(uart);
+	uartHWInitialize(uart, baud);
 
 	uartSWInitialize(uart);
 
@@ -101,7 +91,7 @@ uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles){
 /*----- Static functions ----*/
 //=============================
 //-----------------------------
-static uint8_t uartHWInitialize(USART_TypeDef *uart){
+static uint8_t uartHWInitialize(USART_TypeDef *uart, uint32_t baud){
 
 	uint32_t _uart = (uint32_t)uart;
 	GPIO_TypeDef *portTX = 0;
@@ -196,6 +186,32 @@ static uint8_t uartHWInitialize(USART_TypeDef *uart){
 		return 1;
 	}
 
+	switch(baud){
+
+	case 9600:
+		if( uart == USART1 ) uart->BRR = (uint32_t)0x1D4C;
+		else uart->BRR = (uint32_t)0xEA6;
+		break;
+
+	case 19200:
+		if( uart == USART1 ) uart->BRR = (uint32_t)0xEA6;
+		else uart->BRR = (uint32_t)0x753;
+		break;
+
+	case 57600:
+		if( uart == USART1 ) uart->BRR = (uint32_t)0x4E2;
+		else uart->BRR = (uint32_t)0x271;
+		break;
+
+	case 115200:
+		if( uart == USART1 ) uart->BRR = (uint32_t)0x271;
+		else uart->BRR = (uint32_t)0x138;
+		break;
+
+	default:
+		return 2;
+	}
+
 	/* Sets GPIO pins */
 	gpioPortEnable(portTX);
 	if(portTX != portRX) gpioPortEnable(portRX);
@@ -206,10 +222,8 @@ static uint8_t uartHWInitialize(USART_TypeDef *uart){
 	NVIC_SetPriority(irqn, 6);
 	NVIC_EnableIRQ(irqn);
 
-	/* Sets USART/UART configs */
+	/* Sets and enable USART/UART */
 	uart->CR1 = USART_CR1_RXNEIE | USART_CR1_RE | USART_CR1_UE;
-	//USART1->BRR = (uint32_t)0x1D4C; //9600 bps / clk = 72e6
-	uart->BRR = (uint32_t)0x271; // 115200 bps / clk = 72e6
 
 	return 0;
 }
@@ -280,155 +294,6 @@ static void uartTriggerTransmission(USART_TypeDef *uart){
 
 	uart->CR1 |= USART_CR1_TE | USART_CR1_TXEIE;
 }
-//-----------------------------
-//static void uartClockEnable(USART_TypeDef *uart){
-//
-//	switch(uart){
-//
-//#if (configUART1_ENABLED)
-//	case USART1:
-//		RCC->APB2ENR |= (uint32_t)(1U << 14);
-//		break;
-//#endif
-//
-//#if (configUART2_ENABLED)
-//	case USART2:
-//		RCC->APB1ENR |= (uint32_t)(1U << 17);
-//		break;
-//#endif
-//
-//#if (configUART3_ENABLED)
-//	case USART3:
-//		RCC->APB1ENR |= (uint32_t)(1U << 18);
-//		break;
-//#endif
-//
-//#if (configUART4_ENABLED)
-//	case UART4:
-//		RCC->APB1ENR |= (uint32_t)(1U << 19);
-//		break;
-//#endif
-//
-//#if (configUART5_ENABLED)
-//	case UART5:
-//		RCC->APB1ENR |= (uint32_t)(1U << 20);
-//		break;
-//#endif
-//
-//	default:
-//		break;
-//	}
-//}
-//-----------------------------
-//static void uartPinsSet(uint32_t uart){
-//
-//	GPIO_TypeDef *portTX = 0;
-//	uint16_t portTXPin = 0;
-//	GPIO_TypeDef *portRX = 0;
-//	uint16_t portRXPin = 0;
-//
-//	switch(uart){
-//
-//#if (configUART1_ENABLED)
-//	case USART1:
-//		portTX = GPIOA;
-//		portTXPin = GPIO_P9;
-//		portRX = GPIOA;
-//		portRXPin = GPIO_P10;
-//		break;
-//#endif
-//
-//#if (configUART2_ENABLED)
-//	case USART2:
-//		portTX = GPIOA;
-//		portTXPin = GPIO_P2;
-//		portRX = GPIOA;
-//		portRXPin = GPIO_P3;
-//		break;
-//#endif
-//
-//#if (configUART3_ENABLED)
-//	case USART3:
-//		portTX = GPIOB;
-//		portTXPin = GPIO_P10;
-//		portRX = GPIOB;
-//		portRXPin = GPIO_P11;
-//		break;
-//#endif
-//
-//#if (configUART4_ENABLED)
-//	case UART4:
-//		portTX = GPIOC;
-//		portTXPin = GPIO_P10;
-//		portRX = GPIOC;
-//		portRXPin = GPIO_P11;
-//		break;
-//#endif
-//
-//#if (configUART5_ENABLED)
-//	case UART5:
-//		portTX = GPIOC;
-//		portTXPin = GPIO_P12;
-//		portRX = GPIOD;
-//		portRXPin = GPIO_P2;
-//		break;
-//#endif
-//
-//	default:
-//		return;
-//	}
-//
-//	gpioPortEnable(portTX);
-//	if(portTX != portRX) gpioPortEnable(portRX);
-//
-//	gpioConfig(portTX, portTXPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL);
-//
-//	gpioConfig(portRX, portRXPin, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
-//}
-//-----------------------------
-//static void uartPrioSet(USART_TypeDef *uart){
-//
-//	uint32_t irqn = 0;
-//
-//	switch(uart){
-//
-//#if (configUART1_ENABLED)
-//	case USART1:
-//		irqn = USART1_IRQn;
-//		break;
-//#endif
-//
-//#if (configUART2_ENABLED)
-//	case USART2:
-//		irqn = USART2_IRQn;
-//		break;
-//#endif
-//
-//#if (configUART3_ENABLED)
-//	case USART3:
-//		irqn = USART3_IRQn;
-//		break;
-//#endif
-//
-//#if (configUART4_ENABLED)
-//	case UART4:
-//		//irqn = UART4_IRQn;
-//		break;
-//#endif
-//
-//#if (configUART5_ENABLED)
-//	case UART5:
-//		//irqn = UART5_IRQn;
-//		break;
-//#endif
-//
-//	default:
-//		return;
-//	}
-//
-//	NVIC_SetPriority(irqn, 6);
-//	NVIC_EnableIRQ(irqn);
-//}
 //-----------------------------
 static uint8_t uartQueueIndex(USART_TypeDef *uart){
 
@@ -552,6 +417,8 @@ void USART3_IRQHandler(void){
 
 	uint8_t txData, rxData;
 	uint32_t usartStatus;
+
+	gpioOutputToggle(GPIOC, GPIO_P13);
 
 	usartStatus = USART3->SR;
 

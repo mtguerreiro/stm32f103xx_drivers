@@ -1,22 +1,21 @@
 /*
  * uart.h
  *
- *  Created on: Apr 29, 2018
+ *  Created on: March 10, 2019
  *      Author: Marco
  *
- *	UART driver for STM32F103RET6 with FreeRTOS.
- *	In the current implementation, @ 72MHz, the driver takes
- *	around 14 us to enqueue a received byte and around 5 us
- *	to execute the routine that sends a byte.
+ *	UART driver for STM32F103xx devices.
  *
- *	Current version: 0.0
+ *	Current version: 0.1
+ *
+ *	- v0.1:
+ *		- Overall improvements in code
  *
  *	Melhorias
  *		- Baudrate configurável
  *		- Melhorar uso das filas (criar somente a quantidade
  *		necessária)
  *		- "Yield from interrupt" individual
- *
  */
 
 #ifndef UART_H_
@@ -35,9 +34,9 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configUART1_ENABLED			1
+#define configUART1_ENABLED			0
 #define configUART2_ENABLED			0
-#define configUART3_ENABLED			0
+#define configUART3_ENABLED			1
 #define configUART4_ENABLED			0
 #define configUART5_ENABLED			0
 
@@ -58,14 +57,12 @@
 #define configUART5_TXQ_SIZE			25
 
 #define configUART_INTERRUPT_YIELD	1
-
-
 //=============================
 
 //=============================
 /*-------- Functions --------*/
 //=============================
-uint8_t uartInitialize(USART_TypeDef *uart);
+uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud);
 uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
 //=============================

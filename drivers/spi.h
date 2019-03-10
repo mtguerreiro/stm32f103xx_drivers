@@ -4,6 +4,11 @@
  *  Created on: Dec 9, 2018
  *      Author: Marco
  *
+ *	Current version: 0.1
+ *
+ *	-v0.1:
+ *		- Adapted to new model
+ *
  *	Melhorias
  *		- Baudrate configurável
  *		- Melhorar uso das filas (criar somente a quantidade
@@ -48,7 +53,7 @@
 /*-------- Functions --------*/
 //=============================
 uint8_t spiInitialize(SPI_TypeDef *spi, uint16_t clockDiv);
-uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
+uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes);
 uint8_t spiRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t waitcycles);
 uint8_t spiWaitTX(SPI_TypeDef *spi, uint32_t waitcycles);
 //=============================

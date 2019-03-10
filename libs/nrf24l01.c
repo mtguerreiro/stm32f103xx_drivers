@@ -77,7 +77,7 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1);
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -120,10 +120,10 @@ uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 	configNRF24L01_CSN_RESET;
 
 	command = 0xA0;
-	spiWrite(SPI1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1);
 	k = size;
 	while(k--){
-		spiWrite(SPI1, buffer++, 1, 0);
+		spiWrite(SPI1, buffer++, 1);
 	}
 	spiWaitTX(SPI1, 0xFFFF);
 
@@ -153,10 +153,10 @@ uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 	configNRF24L01_CSN_RESET;
 
 	command = 0x61;
-	spiWrite(SPI1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1);
 	k = size;
 	while(k--){
-		spiWrite(SPI1, &dummy, 1, 0);
+		spiWrite(SPI1, &dummy, 1);
 	}
 	spiWaitTX(SPI1, 0xFFFF);
 
@@ -229,7 +229,7 @@ uint8_t nrf24l01FlushTX(void){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1);
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -247,7 +247,7 @@ uint8_t nrf24l01FlushRX(void){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &command, 1, 0);
+	spiWrite(SPI1, &command, 1);
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -289,8 +289,8 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &reg, 1, 0);
-	spiWrite(SPI1, &dummy, 1, 0);
+	spiWrite(SPI1, &reg, 1);
+	spiWrite(SPI1, &dummy, 1);
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -316,10 +316,10 @@ static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &reg, 1, 0);
+	spiWrite(SPI1, &reg, 1);
 	k = 5;
 	while(k--){
-		spiWrite(SPI1, &dummy, 1, 0);
+		spiWrite(SPI1, &dummy, 1);
 	}
 	spiWaitTX(SPI1, 0xFFFF);
 
@@ -350,8 +350,8 @@ static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &reg, 1, 0);
-	spiWrite(SPI1, buffer, 1, 0);
+	spiWrite(SPI1, &reg, 1);
+	spiWrite(SPI1, buffer, 1);
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -376,10 +376,10 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &reg, 1, 0);
+	spiWrite(SPI1, &reg, 1);
 	k = 5;
 	while(k--){
-		spiWrite(SPI1, &buffer[k], 1, 0);
+		spiWrite(SPI1, &buffer[k], 1);
 	}
 	spiWaitTX(SPI1, 0xFFFF);
 

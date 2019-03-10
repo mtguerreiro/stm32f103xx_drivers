@@ -221,55 +221,55 @@ static void uartClockEnable(uint32_t uart){
 //-----------------------------
 static void uartPinsSet(uint32_t uart){
 
-	uint32_t portTX = 0;
+	GPIO_TypeDef *portTX = 0;
 	uint16_t portTXPin = 0;
-	uint32_t portRX = 0;
+	GPIO_TypeDef *portRX = 0;
 	uint16_t portRXPin = 0;
 
 	switch(uart){
 
 #if (configUART1_ENABLED)
 	case UART_1:
-		portTX = GPIO_PA;
-		portTXPin = GPIO_PA_9;
-		portRX = GPIO_PA;
-		portRXPin = GPIO_PA_10;
+		portTX = GPIOA;
+		portTXPin = GPIO_P9;
+		portRX = GPIOA;
+		portRXPin = GPIO_P10;
 		break;
 #endif
 
 #if (configUART2_ENABLED)
 	case UART_2:
-		portTX = GPIO_PA;
-		portTXPin = GPIO_PA_2;
-		portRX = GPIO_PA;
-		portRXPin = GPIO_PA_3;
+		portTX = GPIOA;
+		portTXPin = GPIO_P2;
+		portRX = GPIOA;
+		portRXPin = GPIO_P3;
 		break;
 #endif
 
 #if (configUART3_ENABLED)
 	case UART_3:
-		portTX = GPIO_PB;
-		portTXPin = GPIO_PB_10;
-		portRX = GPIO_PB;
-		portRXPin = GPIO_PB_11;
+		portTX = GPIOB;
+		portTXPin = GPIO_P10;
+		portRX = GPIOB;
+		portRXPin = GPIO_P11;
 		break;
 #endif
 
 #if (configUART4_ENABLED)
 	case UART_4:
-		portTX = GPIO_PC;
-		portTXPin = GPIO_PC_10;
-		portRX = GPIO_PC;
-		portRXPin = GPIO_PC_11;
+		portTX = GPIOC;
+		portTXPin = GPIO_P10;
+		portRX = GPIOC;
+		portRXPin = GPIO_P11;
 		break;
 #endif
 
 #if (configUART5_ENABLED)
 	case UART_5:
-		portTX = GPIO_PC;
-		portTXPin = GPIO_PC_12;
-		portRX = GPIO_PD;
-		portRXPin = GPIO_PD_2;
+		portTX = GPIOC;
+		portTXPin = GPIO_P12;
+		portRX = GPIOD;
+		portRXPin = GPIO_P2;
 		break;
 #endif
 
@@ -280,11 +280,9 @@ static void uartPinsSet(uint32_t uart){
 	gpioPortEnable(portTX);
 	if(portTX != portRX) gpioPortEnable(portRX);
 
-	gpioMode(portTX, GPIO_MODE_OUTPUT_10MHZ, portTXPin);
-	gpioConfig(portTX, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL, portTXPin);
+	gpioConfig(portTX, portTXPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL);
 
-	gpioMode(portRX, GPIO_MODE_INPUT, portRXPin);
-	gpioConfig(portRX, GPIO_CONFIG_INPUT_FLOAT_INPUT, portRXPin);
+	gpioConfig(portRX, portRXPin, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
 }
 //-----------------------------
 static void uartPrioSet(uint32_t uart){

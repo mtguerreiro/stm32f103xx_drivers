@@ -276,12 +276,11 @@ void nr24l01ResetCE(void){
 static void nrf24l01PortInitialize(void){
 
 	gpioPortEnable(configNRF24L01_CE_PORT);
-	gpioMode(configNRF24L01_CE_PORT, GPIO_MODE_OUTPUT_10MHZ, configNRF24L01_CE_PIN);
-	gpioConfig(configNRF24L01_CE_PORT, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL, configNRF24L01_CE_PIN);
+	gpioConfig(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
 
 	gpioPortEnable(configNRF24L01_CSN_PORT);
-	gpioMode(configNRF24L01_CSN_PORT, GPIO_MODE_OUTPUT_10MHZ, configNRF24L01_CSN_PIN);
-	gpioConfig(configNRF24L01_CSN_PORT, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL, configNRF24L01_CSN_PIN);
+	gpioConfig(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
+
 }
 //-----------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){

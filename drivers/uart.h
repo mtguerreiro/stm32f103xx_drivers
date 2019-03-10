@@ -65,22 +65,15 @@
 //=============================
 /*-------- Functions --------*/
 //=============================
-uint8_t uartInitialize(uint32_t uart);
-uint8_t uartWrite(uint32_t uart, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
-uint8_t uartRead(uint32_t uart, uint8_t *buffer, uint32_t waitcycles);
+uint8_t uartInitialize(USART_TypeDef *uart);
+uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes, uint32_t waitcycles);
+uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
 //=============================
 
 //=============================
 /*--------- Structs ---------*/
 //=============================
 //-----------------------------
-typedef enum{
-	UART_1 = USART1_BASE,
-	UART_2 = USART2_BASE,
-	UART_3 = USART3_BASE,
-	UART_4 = UART4_BASE,
-	UART_5 = UART5_BASE
-}uartN_t;
 //-----------------------------
 //=============================
 

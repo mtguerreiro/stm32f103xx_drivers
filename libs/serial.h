@@ -24,6 +24,7 @@
 #define configSERIAL_ID_MAX_DELAY		100
 
 #define configSERIAL_START_BYTE			0x55
+#define configSERIAL_STOP_BYTE			0x77
 //=============================
 
 //=============================
@@ -35,6 +36,7 @@ typedef struct{
 	uint32_t id;
 	serialHandler_t ptr;
 	uint8_t *buffer;
+	uint32_t dataSize;
 	uint8_t dataAvailable;
 }serial_t;
 //-----------------------------

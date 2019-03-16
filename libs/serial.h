@@ -12,6 +12,9 @@
 /*--------- Includes --------*/
 //=============================
 #include <stdint.h>
+
+/* Drivers */
+#include "uart.h"
 //=============================
 
 //=============================
@@ -51,8 +54,9 @@ typedef struct{
 //=============================
 /*-------- Functions --------*/
 //=============================
-uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler);
+void serialInitialize(USART_TypeDef *uart, uint32_t baud);
 uint8_t serialRun(void);
+uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler);
 //=============================
 
 #endif /* SERIAL_H_ */

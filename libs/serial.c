@@ -10,8 +10,6 @@
 //=============================
 #include "serial.h"
 
-/* Drivers */
-//#include "uart.h"
 //=============================
 
 //=============================
@@ -42,6 +40,7 @@ typedef enum{
 typedef struct{
 	uint32_t n;
 	serial_t *serials[configSERIAL_MAX_IDS];
+	USART_TypeDef *uart;
 }serialControl_t;
 //-----------------------------
 typedef struct{
@@ -54,14 +53,12 @@ typedef struct{
 //=============================
 /*-------- Prototypes -------*/
 //=============================
-static void serialInitialize(void);
 static void serialStateStart(void);
 static void serialStateID(void);
 static void serialStataDataSize(void);
 static void serialStateData(void);
 static void serialStateStop(void);
 static uint32_t serialFindID(uint32_t id);
-static uint8_t uartRead(uint8_t *buffer);
 //=============================
 
 //=============================
@@ -75,6 +72,30 @@ serial_t *serialCurrent;
 //=============================
 /*-------- Functions --------*/
 //=============================
+//-----------------------------
+void serialInitialize(USART_TypeDef *uart, uint32_t baud){
+
+	uartInitialize(uart, baud);
+
+	serialControl.uart = uart;
+
+	/* Initial state */
+	serialSMControl.state = ST_START;
+
+	/* State functions */
+	serialSMControl.functions[ST_START] = serialStateStart;
+	serialSMControl.functions[ST_ID] = serialStateID;
+	serialSMControl.functions[ST_DATA_SIZE] = serialStataDataSize;
+	serialSMControl.functions[ST_DATA] = serialStateData;
+	serialSMControl.functions[ST_STOP] = serialStateStop;
+}
+//-----------------------------
+uint8_t serialRun(void){
+
+	while(1){
+		serialSMControl.functions[serialSMControl.state]();
+	}
+}
 //-----------------------------
 uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler){
 
@@ -96,41 +117,17 @@ uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHa
 	return 0;
 }
 //-----------------------------
-uint8_t serialRun(void){
-
-	serialInitialize();
-	while(1){
-		serialSMControl.functions[serialSMControl.state]();
-	}
-}
-//-----------------------------
 //=============================
 
 //=============================
 /*----- Static functions ----*/
 //=============================
 //-----------------------------
-static void serialInitialize(void){
-
-	//uartInitialize(USART1, 115200);
-
-	/* Initial state */
-	serialSMControl.state = ST_START;
-
-	/* State functions */
-	serialSMControl.functions[ST_START] = serialStateStart;
-	serialSMControl.functions[ST_ID] = serialStateID;
-	serialSMControl.functions[ST_DATA_SIZE] = serialStataDataSize;
-	serialSMControl.functions[ST_DATA] = serialStateData;
-	serialSMControl.functions[ST_STOP] = serialStateStop;
-}
-//-----------------------------
 static void serialStateStart(void){
 
 	uint8_t buffer;
 
-	//if( uartRead(USART1, &buffer, configSERIAL_START_MAX_DELAY) ) return;
-	if( uartRead(&buffer) ) return;
+	if( uartRead(serialControl.uart, &buffer, configSERIAL_START_MAX_DELAY) ) return;
 
 	if( buffer != configSERIAL_START_BYTE ) return;
 
@@ -147,8 +144,7 @@ static void serialStateID(void){
 	id = 0;
 	k = 0;
 	while(k < 4){
-		//if( uartRead(USART1, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
-		if( uartRead(&buffer) ) break;
+		if( uartRead(serialControl.uart, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
 		id += (buffer << (k << 3));
 		k++;
 	}
@@ -174,7 +170,6 @@ static void serialStateID(void){
 	}
 
 	serialCurrent = serialControl.serials[ididx];
-
 	serialSMControl.state = ST_DATA_SIZE;
 }
 //-----------------------------
@@ -187,8 +182,7 @@ static void serialStataDataSize(void){
 	size = 0;
 	k = 0;
 	while(k < 4){
-		//if( uartRead(USART1, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
-		if( uartRead(&buffer) ) break;
+		if( uartRead(serialControl.uart, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
 		size += (buffer << (k << 3));
 		k++;
 	}
@@ -224,7 +218,7 @@ static void serialStateData(void){
 	k = 0;
 
 	while(k < serialCurrent->dataSize){
-		if( uartRead(buffer++) ) break;
+		if( uartRead(serialControl.uart, buffer++, configSERIAL_START_MAX_DELAY) ) break;
 		k++;
 	}
 
@@ -241,8 +235,7 @@ static void serialStateStop(void){
 
 	uint8_t buffer;
 
-	//if( uartRead(USART1, &buffer, configSERIAL_START_MAX_DELAY) ) return;
-	if( uartRead(&buffer) ) {
+	if( uartRead(serialControl.uart, &buffer, configSERIAL_START_MAX_DELAY) ){
 		serialSMControl.state = ST_START;
 		return;
 	}
@@ -274,13 +267,3 @@ static uint32_t serialFindID(uint32_t id){
 }
 //-----------------------------
 //=============================
-
-static uint8_t uartRead(uint8_t *buffer){
-
-	static uint8_t buf[30] = {0x55, 0x55, 0x55, 0xAA, 0xAA, 0x02, 0x00, 0x00, 0x00, 0x12, 0xB3, 0x77,
-							  0x55, 0xAA, 0xAA, 0xAA, 0xAA, 0x01};
-	static uint8_t *ptr = buf;
-
-	*buffer = *ptr++;
-	return 0;
-}

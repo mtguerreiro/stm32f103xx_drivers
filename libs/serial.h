@@ -14,11 +14,17 @@
 #include <stdint.h>
 //=============================
 
+//=============================
+/*-------- Func ptrs --------*/
+//=============================
+/* Function executed when data is received */
+typedef void(*serialHandler_t)(void);
+//=============================
 
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configSERIAL_MAX_IDS	10
+#define configSERIAL_MAX_IDS			10
 
 #define configSERIAL_START_MAX_DELAY	2000
 #define configSERIAL_ID_MAX_DELAY		100
@@ -34,7 +40,7 @@
 typedef void(*serialHandler_t)(void);
 typedef struct{
 	uint32_t id;
-	serialHandler_t ptr;
+	serialHandler_t handler;
 	uint8_t *buffer;
 	uint32_t dataSize;
 	uint8_t dataAvailable;
@@ -48,6 +54,5 @@ typedef struct{
 uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler);
 uint8_t serialRun(void);
 //=============================
-
 
 #endif /* SERIAL_H_ */

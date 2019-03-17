@@ -4,7 +4,7 @@
  *  Created on: Mar 11, 2019
  *      Author: marco
  *
- *	Current version: v0.1.2
+ *	Current version: v0.1.3
  *
  *	-v0.1.0
  *		- Initial version
@@ -17,6 +17,9 @@
  *		- Corrected bug in serialSend
  *		- Added serialSendString
  *		- Added serial SendStringRaw
+ *
+ *	-v0.1.3
+ *		- Modularization for serialSend and serialSendString
  *
  */
 

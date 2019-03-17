@@ -60,6 +60,7 @@ static void serialStataDataSize(void);
 static void serialStateData(void);
 static void serialStateStop(void);
 static uint32_t serialFindID(uint32_t id);
+static uint8_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 //=============================
 
 //=============================
@@ -121,9 +122,7 @@ uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHa
 uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
 
 	uint32_t id;
-	uint32_t k;
-	uint32_t size;
-	uint8_t start[9];
+	uint32_t status;
 
 	id = serial->id;
 	/* Checks if ID is valid */
@@ -136,33 +135,10 @@ uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
 	}
 	serialControl.txBusy = 1;
 
-	size = nbytes;
-	/* Builds start of frame (start, ID, size) */
-	start[0] = configSERIAL_START_BYTE;
-	for(k = 0; k < 4; k++){
-		start[k + 1] = (uint8_t)id;
-		id =  id >> 8;
-		start[k + 5] = (uint8_t)size;
-		size = size >> 8;
-	}
-
-	/* Sends start of frame */
-	if( uartWrite(serialControl.uart, start, 9) ){
+	status = serialSendFrame(id, buffer, nbytes);
+	if(status){
 		serialControl.txBusy = 0;
-		return 3;
-	}
-
-	/* Sends data from buffer */
-	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
-		serialControl.txBusy = 0;
-		return 4;
-	}
-
-	/* Sends end of frame */
-	start[0] = configSERIAL_STOP_BYTE;
-	if( uartWrite(serialControl.uart, start, 1) ){
-		serialControl.txBusy = 0;
-		return 5;
+		return (uint8_t)(status + 2U);
 	}
 
 	serialControl.txBusy = 0;
@@ -172,11 +148,9 @@ uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
 uint8_t serialSendString(serial_t *serial, void *string){
 
 	uint32_t id;
-	uint32_t k;
-	uint32_t size;
+	uint32_t status;
 	uint32_t nbytes;
 	uint8_t *buffer;
-	uint8_t start[9];
 
 	buffer = (uint8_t *)string;
 
@@ -199,33 +173,10 @@ uint8_t serialSendString(serial_t *serial, void *string){
 	buffer--;
 	buffer = buffer - nbytes;
 
-	size = nbytes;
-	/* Builds start of frame (start, ID, size) */
-	start[0] = configSERIAL_START_BYTE;
-	for(k = 0; k < 4; k++){
-		start[k + 1] = (uint8_t)id;
-		id =  id >> 8;
-		start[k + 5] = (uint8_t)size;
-		size = size >> 8;
-	}
-
-	/* Sends start of frame */
-	if( uartWrite(serialControl.uart, start, 9) ){
+	status = serialSendFrame(id, buffer, nbytes);
+	if(status){
 		serialControl.txBusy = 0;
-		return 3;
-	}
-
-	/* Sends data from buffer */
-	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
-		serialControl.txBusy = 0;
-		return 4;
-	}
-
-	/* Sends end of frame */
-	start[0] = configSERIAL_STOP_BYTE;
-	if( uartWrite(serialControl.uart, start, 1) ){
-		serialControl.txBusy = 0;
-		return 5;
+		return (uint8_t)(status + 2U);
 	}
 
 	serialControl.txBusy = 0;
@@ -411,6 +362,35 @@ static uint32_t serialFindID(uint32_t id){
 	if(k == serialControl.n) return serialControl.n;
 
 	return k;
+}
+//-----------------------------
+static uint8_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes){
+
+	uint32_t size;
+	uint32_t k;
+	uint8_t start[9];
+
+	size = nbytes;
+	/* Builds start of frame (start, ID, size) */
+	start[0] = configSERIAL_START_BYTE;
+	for(k = 0; k < 4; k++){
+		start[k + 1] = (uint8_t)id;
+		id =  id >> 8;
+		start[k + 5] = (uint8_t)size;
+		size = size >> 8;
+	}
+
+	/* Sends start of frame */
+	if( uartWrite(serialControl.uart, start, 9) ) return 1;
+
+	/* Sends data from buffer */
+	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ) return 2;
+
+	/* Sends end of frame */
+	start[0] = configSERIAL_STOP_BYTE;
+	if( uartWrite(serialControl.uart, start, 1) ) return 3;
+
+	return 0;
 }
 //-----------------------------
 //=============================

@@ -4,7 +4,14 @@
  *  Created on: Mar 11, 2019
  *      Author: marco
  *
- *	Current version: v0.1.0
+ *	Current version: v0.1.1
+ *
+ *	-v0.1.0
+ *		- Initial version
+ *
+ *	-v0.1.1
+ *		- Added serialSend
+ *		- Handles can be null
  *
  */
 
@@ -60,6 +67,7 @@ typedef struct{
 void serialInitialize(USART_TypeDef *uart, uint32_t baud);
 uint8_t serialRun(void);
 uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler);
+uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes);
 //=============================
 
 #endif /* SERIAL_H_ */

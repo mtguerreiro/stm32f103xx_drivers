@@ -41,6 +41,7 @@ typedef struct{
 	uint32_t n;
 	serial_t *serials[configSERIAL_MAX_IDS];
 	USART_TypeDef *uart;
+	uint32_t txBusy;
 }serialControl_t;
 //-----------------------------
 typedef struct{
@@ -65,7 +66,7 @@ static uint32_t serialFindID(uint32_t id);
 /*--------- Globals ---------*/
 //=============================
 serialSM_t serialSMControl;
-serialControl_t serialControl = {.n = 0};
+serialControl_t serialControl = {.n = 0, .txBusy = 0};
 serial_t *serialCurrent;
 //=============================
 
@@ -114,6 +115,57 @@ uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHa
 	serial->dataSize = 0;
 	serial->dataAvailable = 0;
 
+	return 0;
+}
+//-----------------------------
+uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
+
+	uint32_t id;
+	uint32_t k;
+	uint32_t size;
+	uint8_t start[9];
+
+	id = serial->id;
+	/* Checks if ID is valid */
+	if( id == serialControl.n ){
+		return 1;
+	}
+
+	if(serialControl.txBusy){
+		return 2;
+	}
+	serialControl.txBusy = 1;
+
+	size = nbytes;
+	/* Builds start of frame (start, ID, size) */
+	start[0] = configSERIAL_START_BYTE;
+	for(k = 0; k < 4; k++){
+		start[k + 1] = (uint8_t)id;
+		id =  id >> 8;
+		start[k + 5] = (uint8_t)size;
+		size = size >> 8;
+	}
+
+	/* Sends start of frame */
+	if( uartWrite(serialControl.uart, start, 9) ){
+		serialControl.txBusy = 0;
+		return 3;
+	}
+
+	/* Sends data from buffer */
+	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
+		serialControl.txBusy = 0;
+		return 4;
+	}
+
+	/* Sends end of frame */
+	start[0] = configSERIAL_STOP_BYTE;
+	if( uartWrite(serialControl.uart, buffer, 1) ){
+		serialControl.txBusy = 0;
+		return 5;
+	}
+
+	serialControl.txBusy = 0;
 	return 0;
 }
 //-----------------------------
@@ -246,7 +298,9 @@ static void serialStateStop(void){
 	}
 
 	serialCurrent->dataAvailable = 1;
-	serialCurrent->handler();
+
+	if( serialCurrent->handler ) serialCurrent->handler();
+
 	serialSMControl.state = ST_START;
 }
 //-----------------------------

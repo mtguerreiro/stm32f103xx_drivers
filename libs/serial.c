@@ -145,7 +145,7 @@ static void serialStateID(void){
 	k = 0;
 	while(k < 4){
 		if( uartRead(serialControl.uart, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
-		id += (buffer << (k << 3));
+		id += (((uint32_t)buffer) << (k << 3));
 		k++;
 	}
 
@@ -183,7 +183,7 @@ static void serialStataDataSize(void){
 	k = 0;
 	while(k < 4){
 		if( uartRead(serialControl.uart, &buffer, configSERIAL_ID_MAX_DELAY) ) break;
-		size += (buffer << (k << 3));
+		size += (((uint32_t)buffer) << (k << 3));
 		k++;
 	}
 

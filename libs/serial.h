@@ -3,6 +3,9 @@
  *
  *  Created on: Mar 11, 2019
  *      Author: marco
+ *
+ *	Current version: v0.1.0
+ *
  */
 
 #ifndef SERIAL_H_

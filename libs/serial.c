@@ -160,9 +160,102 @@ uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
 
 	/* Sends end of frame */
 	start[0] = configSERIAL_STOP_BYTE;
-	if( uartWrite(serialControl.uart, buffer, 1) ){
+	if( uartWrite(serialControl.uart, start, 1) ){
 		serialControl.txBusy = 0;
 		return 5;
+	}
+
+	serialControl.txBusy = 0;
+	return 0;
+}
+//-----------------------------
+uint8_t serialSendString(serial_t *serial, void *string){
+
+	uint32_t id;
+	uint32_t k;
+	uint32_t size;
+	uint32_t nbytes;
+	uint8_t *buffer;
+	uint8_t start[9];
+
+	buffer = (uint8_t *)string;
+
+	id = serial->id;
+	/* Checks if ID is valid */
+	if( id == serialControl.n ){
+		return 1;
+	}
+
+	if(serialControl.txBusy){
+		return 2;
+	}
+	serialControl.txBusy = 1;
+
+	nbytes = 0;
+	/* Size of string */
+	while(*buffer++){
+		nbytes++;
+	}
+	buffer--;
+	buffer = buffer - nbytes;
+
+	size = nbytes;
+	/* Builds start of frame (start, ID, size) */
+	start[0] = configSERIAL_START_BYTE;
+	for(k = 0; k < 4; k++){
+		start[k + 1] = (uint8_t)id;
+		id =  id >> 8;
+		start[k + 5] = (uint8_t)size;
+		size = size >> 8;
+	}
+
+	/* Sends start of frame */
+	if( uartWrite(serialControl.uart, start, 9) ){
+		serialControl.txBusy = 0;
+		return 3;
+	}
+
+	/* Sends data from buffer */
+	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
+		serialControl.txBusy = 0;
+		return 4;
+	}
+
+	/* Sends end of frame */
+	start[0] = configSERIAL_STOP_BYTE;
+	if( uartWrite(serialControl.uart, start, 1) ){
+		serialControl.txBusy = 0;
+		return 5;
+	}
+
+	serialControl.txBusy = 0;
+	return 0;
+}
+//-----------------------------
+uint8_t serialSendStringRaw(void *string){
+
+	uint32_t nbytes;
+	uint8_t *buffer;
+
+	buffer = (uint8_t *)string;
+
+	if(serialControl.txBusy){
+		return 1;
+	}
+	serialControl.txBusy = 1;
+
+	nbytes = 0;
+	/* Size of string */
+	while(*buffer++){
+		nbytes++;
+	}
+	buffer--;
+	buffer = buffer - nbytes;
+
+	/* Sends data from buffer */
+	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
+		serialControl.txBusy = 0;
+		return 4;
 	}
 
 	serialControl.txBusy = 0;

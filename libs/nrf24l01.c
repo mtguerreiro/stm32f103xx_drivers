@@ -23,6 +23,9 @@
 #define configNRF24L01_CSN_PORT		GPIOB
 #define configNRF24L01_CSN_PIN		GPIO_P1
 
+#define configNRF24L01_IRQ_PORT		GPIOB
+#define configNRF24L01_IRQ_PIN		GPIO_P2
+
 #define configNRF24L01_CE_SET		gpioOutputSet(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
 #define configNRF24L01_CE_RESET		gpioOutputReset(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
 
@@ -48,6 +51,7 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01Initialize(void){
 
 	uint8_t buffer;
+	uint8_t data;
 
 	if( spiInitialize(SPI1, SPI_CLK_DIV_128) ) return 1;
 
@@ -56,14 +60,39 @@ uint8_t nrf24l01Initialize(void){
 	configNRF24L01_CSN_SET;
 	configNRF24L01_CE_RESET;
 
-	/* Power up module */
-	uint8_t data = 0x7A;
+	/* Power up module
+	 * - Bit 6: Mask data received interrupt
+	 * 		If 0, RX_DR will be reflected on IRQn pin. If 0, RX_DR is not
+	 * 		reflected on IRQn pin.
+	 *
+	 * - Bit 5: Mask data sent interrupt
+	 * 		If 0, TX_DS will be reflected on IRQn pin. If 0, TX_DS is not
+	 * 		reflected on IRQn pin.
+	 *
+	 * 	- Bit 4: Mask maximum retries interrupt
+	 * 		 If 0, MAX_RT will be reflected on IRQn pin. If 0, MAX_RT is not
+	 * 		reflected on IRQn pin.
+	 *
+	 * 	- Bit 3: Enables CRC
+	 * 		If 1, CRC is enabled. This will also be forced to 1 if EN_AA is high.
+	 *
+	 * 	- Bit 2: CRC encoding scheme
+	 * 		If 0, 1 byte is used for CRC. If 1, two bytes are used.
+	 *
+	 * 	- Bit 1: Power up
+	 * 		If 1, device is powered up. If 0, device is off.
+	 *
+	 * 	- Bit 0: Primary receiver
+	 * 		If 1, device is configured as primary receiver. If 0, device is
+	 * 		configured as primary transmitter.
+	 * */
+	data = 0x0A;
 	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
 
-	/*Check if module has been configured */
+	/* Check if module has been correctly configured */
 	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
 
-	if(buffer != data) return 1;
+	if(buffer != data) return 2;
 
 	return 0;
 }
@@ -281,6 +310,8 @@ static void nrf24l01PortInitialize(void){
 	gpioPortEnable(configNRF24L01_CSN_PORT);
 	gpioConfig(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
 
+//	gpioPortEnable(configNRF24L01_IRQ_PORT);
+//	gpioConfig(configNRF24L01_IRQ_PORT, configNRF24L01_IRQ_PIN, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_PULL_INPUT);
 }
 //-----------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){

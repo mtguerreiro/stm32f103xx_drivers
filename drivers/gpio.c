@@ -37,8 +37,25 @@ void gpioPortEnable(GPIO_TypeDef *port){
 //-----------------------------
 void gpioConfig(GPIO_TypeDef *port, uint16_t pins, uint8_t mode, uint8_t conf){
 
+	/* First, set mode (input or output) */
 	gpioSetCR(port, pins, 0, mode);
-	gpioSetCR(port, pins, 1, conf);
+
+	/* Now, sets conf (push-pull, open-drain, input pull-up etc) */
+	if(mode == GPIO_MODE_INPUT){
+		if(conf < 2){
+			/* If input is float or analog, just need  to set the conf registers */
+			gpioSetCR(port, pins, 1, conf);
+		}
+		else{
+			/* If input is pull-up or down, we must also set the ODR register */
+			gpioSetCR(port, pins, 1, 0x02);
+			if(conf == GPIO_CONFIG_INPUT_PULL_UP) port->ODR |= pins;
+			else if(conf == GPIO_CONFIG_INPUT_PULL_DOWN) port->ODR &= ((uint32_t)~pins & 0x0000FFFF);
+		}
+	}
+	else{
+		gpioSetCR(port, pins, 1, conf);
+	}
 }
 //-----------------------------
 void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins){

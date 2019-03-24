@@ -12,6 +12,10 @@
 
 #include <stdint.h>
 
+/* Kernel */
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 /* Drivers */
 #include "spi.h"
 #include "gpio.h"
@@ -24,7 +28,7 @@
 #define configNRF24L01_CSN_PIN		GPIO_P1
 
 #define configNRF24L01_IRQ_PORT		GPIOB
-#define configNRF24L01_IRQ_PIN		GPIO_P2
+#define configNRF24L01_IRQ_PIN		GPIO_P3
 
 #define configNRF24L01_CE_SET		gpioOutputSet(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
 #define configNRF24L01_CE_RESET		gpioOutputReset(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
@@ -37,10 +41,17 @@
 /*-------- Prototypes -------*/
 //=============================
 static void nrf24l01PortInitialize(void);
+static void nrf24l01EXTIInitialize(void);
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer);
 static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer);
 static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer);
 static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
+//=============================
+
+//=============================
+/*--------- Globals ---------*/
+//=============================
+SemaphoreHandle_t nrf24l01Semaphore;
 //=============================
 
 
@@ -56,6 +67,10 @@ uint8_t nrf24l01Initialize(void){
 	if( spiInitialize(SPI1, SPI_CLK_DIV_128) ) return 1;
 
 	nrf24l01PortInitialize();
+
+	nrf24l01Semaphore = xSemaphoreCreateBinary();
+	if(nrf24l01Semaphore == NULL) return 2;
+	xSemaphoreTake(nrf24l01Semaphore, 0);
 
 	configNRF24L01_CSN_SET;
 	configNRF24L01_CE_RESET;
@@ -92,7 +107,7 @@ uint8_t nrf24l01Initialize(void){
 	/* Check if module has been correctly configured */
 	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
 
-	if(buffer != data) return 2;
+	if(buffer != data) return 3;
 
 	return 0;
 }
@@ -296,6 +311,13 @@ void nr24l01ResetCE(void){
 	configNRF24L01_CE_RESET;
 }
 //-----------------------------
+uint8_t nrf24l01Pend(uint32_t ticks){
+
+	if(xSemaphoreTake(nrf24l01Semaphore, ticks) != pdPASS) return 1;
+
+	return 0;
+}
+//-----------------------------
 //=============================
 
 //=============================
@@ -310,8 +332,27 @@ static void nrf24l01PortInitialize(void){
 	gpioPortEnable(configNRF24L01_CSN_PORT);
 	gpioConfig(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
 
-//	gpioPortEnable(configNRF24L01_IRQ_PORT);
-//	gpioConfig(configNRF24L01_IRQ_PORT, configNRF24L01_IRQ_PIN, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_PULL_INPUT);
+	gpioPortEnable(configNRF24L01_IRQ_PORT);
+	gpioConfig(configNRF24L01_IRQ_PORT, configNRF24L01_IRQ_PIN, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_PULL_UP);
+
+	/* Configures EXTI line 3 as external source */
+	nrf24l01EXTIInitialize();
+}
+//-----------------------------
+static void nrf24l01EXTIInitialize(void){
+
+	/* Selects GPIOB pin 3 as external source for line 3 */
+	AFIO->EXTICR[0] = (1U << 12);
+	/* Interrupt for line 3 is not masked */
+	EXTI->IMR |= (1U << 3);
+	/* Sets falling edge as trigger for line 2 */
+	EXTI->FTSR |= (1U << 3);
+	/* Clears pending register */
+	EXTI->PR |= (1U << 3);
+
+	/* Sets NVIC priority and enables interrupt */
+	NVIC_SetPriority(EXTI3_IRQn, 6);
+	NVIC_EnableIRQ(EXTI3_IRQn);
 }
 //-----------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
@@ -427,6 +468,25 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 	}
 
 	return 0;
+}
+//-----------------------------
+//=============================
+
+//=============================
+/*------- IRQ Handlers ------*/
+//=============================
+//-----------------------------
+void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+void EXTI3_IRQHandler(void){
+
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+	EXTI->PR |= (1U << 3);
+
+	gpioOutputToggle(GPIOB, GPIO_P11);
+
+	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
+	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 //-----------------------------
 //=============================

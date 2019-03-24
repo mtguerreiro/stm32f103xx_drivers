@@ -4,6 +4,14 @@
  *  Created on: Dec 9, 2018
  *      Author: Marco
  *
+ *	Current version: 0.1.1
+ *
+ *	-v0.1.0:
+ *		- Initial version
+ *
+ *	-v0.1.1:
+ *		- Added function to pend on IRQ pin
+ *
  * Melhorias
  * 		- Após enviar um comando, realizar a leitura para ver
  * 		se foi configurado corretamente
@@ -69,6 +77,7 @@ uint8_t nrf24l01FlushTX(void);
 uint8_t nrf24l01FlushRX(void);
 void nr24l01SetCE(void);
 void nr24l01ResetCE(void);
+uint8_t nrf24l01Pend(uint32_t ticks);
 //=============================
 
 

@@ -302,6 +302,9 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 //-----------------------------
 uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
+	/* Starts listening */
+	nr24l01SetCE();
+
 	if( nrf24l01Pend(pendTicks) ){
 		/* Nothing received */
 		return 1;
@@ -314,6 +317,9 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 	 */
 	nrf24l01ReceivePayload(buffer, size);
 	nrf24l01StatusClearRXDR();
+
+	/* Stops listening */
+	nr24l01ResetCE();
 
 	return 0;
 }

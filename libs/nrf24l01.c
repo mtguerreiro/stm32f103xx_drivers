@@ -212,6 +212,57 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 	return 0;
 }
 //-----------------------------
+uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
+
+	uint8_t nrfStatus;
+	uint8_t retries;
+	nrf24l01TransmitPayload(buffer, size);
+
+	if( nrf24l01Pend(pendTicks) ){
+		/*
+		 * Pend should always return 0, because if transmission fails, it
+		 * will be due to maximum retries being reached (assuming enough
+		 * ticks have been provided). Thus, we should never get here. If
+		 * we do, we'll clear everything related to transmission.
+		 */
+		nrf24l01FlushTX();
+		nrf24l01StatusClearMaxRT();
+		nrf24l01StatusClearTXDS();
+		return 1;
+	}
+
+	/*
+	 * Now, we check the status. If maximum number of retries were reached,
+	 * we'll flush the TX FIFO and clear the corresponding flag. Else, data
+	 * was sent and we clear the TXDS flag only.
+	 * We'll try to read the status a couple of times. If we do not succeed,
+	 * we'll just clear status and FIFO to be sure, although this is definitely
+	 * not the best solution.
+	 */
+	retries = 5;
+	while(retries){
+		if( !nrf24l01ReadSR(&nrfStatus) ) break;
+		retries--;
+	}
+	if(retries == 0){
+		nrf24l01FlushTX();
+		nrf24l01StatusClearMaxRT();
+		nrf24l01StatusClearTXDS();
+		return 2;
+	}
+	if( nrfStatus & (1 << 4U) ){
+		/* Maximum number of retries exceeded */
+		nrf24l01FlushTX();
+		nrf24l01StatusClearMaxRT();
+		return 3;
+	}
+
+	/* Data sent successfully */
+	nrf24l01StatusClearTXDS();
+
+	return 0;
+}
+//-----------------------------
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer){
 
 	if( (reg == NRF24L01_REG_RX_ADDR_P0) || (reg == NRF24L01_REG_RX_ADDR_P1) || (reg == NRF24L01_REG_TX_ADDR) ){

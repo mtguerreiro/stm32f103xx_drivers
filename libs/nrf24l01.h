@@ -17,6 +17,12 @@
  * Melhorias
  * 		- Após enviar um comando, realizar a leitura para ver
  * 		se foi configurado corretamente
+ * 		- Power-down? Ativer power-up somente quando for transmitir?
+ * 		- Quando transmitindo e há um erro lendo o status, qual seria
+ * 		um tratamento melhor?
+ * 		- Na função nrf24l01Write, o pend pode voltar por ter recebido um
+ * 		dado. Tratar isso.
+ * 		- Repensar a função nrf24l01Write.
  */
 
 #ifndef NRF24L01_H_
@@ -69,6 +75,7 @@
 uint8_t nrf24l01Initialize(void);
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
 uint8_t nrf24l01ReadSR(uint8_t *status);
+uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);

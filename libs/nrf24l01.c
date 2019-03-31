@@ -112,6 +112,94 @@ uint8_t nrf24l01Initialize(void){
 	return 0;
 }
 //-----------------------------
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
+
+	uint8_t buffer[5];
+	uint8_t *addrBuffer;
+	uint8_t data;
+	//uint8_t rxtxAddress[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
+	uint8_t k;
+
+	/* Enables auto-ack on data pipe 0 */
+	data = 0x01;
+	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, buffer);
+	if( *buffer != data ){
+		return 1;
+	}
+
+	/* Enables RX address on data pipe 0 */
+	data = 0x01;
+	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, buffer);
+	if( *buffer != data ){
+		return 2;
+	}
+
+	/* Waits 2000 us for retransmission, tries up to 5 times */
+	data = 0x65;
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
+	if( *buffer != data ){
+		return 3;
+	}
+
+	/* Sets RF channel (frequency) */
+	data = 0x07;
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
+	if( *buffer != data ){
+		return 4;
+	}
+
+	/* Sets RX address */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_ADDR_P0, addrBuffer);
+	nrf24l01ReadRegister(NRF24L01_REG_RX_ADDR_P0, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]){
+			return 5;
+		}
+	}
+
+	/* Sets TX address */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_TX_ADDR, addrBuffer);
+	nrf24l01ReadRegister(NRF24L01_REG_TX_ADDR, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]){
+			return 6;
+		}
+	}
+
+	/* Sets number of bytes in RX payload data pipe 0 to 5 */
+	data = plSize;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_PW_P0, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, buffer);
+	if(data != *buffer){
+		return 7;
+	}
+
+	/* Sets as primary RX (PRX) */
+	data = 0x0B;
+	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, buffer);
+	if(data != *buffer){
+		return 8;
+	}
+
+	nrf24l01FlushTX();
+	nrf24l01FlushRX();
+
+	nrf24l01StatusClear();
+
+	return 0;
+}
+//-----------------------------
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize){
 
 	uint8_t buffer[5];
@@ -212,10 +300,28 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 	return 0;
 }
 //-----------------------------
+uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
+
+	if( nrf24l01Pend(pendTicks) ){
+		/* Nothing received */
+		return 1;
+	}
+
+	/*
+	 * If the device is in RX mode and the pend returned 0, then we certainly
+	 * received data. Thus, we just retrieve it from the FIFO and clear the
+	 * data received flag.
+	 */
+	nrf24l01ReceivePayload(buffer, size);
+	nrf24l01StatusClearRXDR();
+
+	return 0;
+}
+//-----------------------------
 uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
 	uint8_t nrfStatus;
-	uint8_t retries;
+
 	nrf24l01TransmitPayload(buffer, size);
 
 	if( nrf24l01Pend(pendTicks) ){
@@ -235,22 +341,16 @@ uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 	 * Now, we check the status. If maximum number of retries were reached,
 	 * we'll flush the TX FIFO and clear the corresponding flag. Else, data
 	 * was sent and we clear the TXDS flag only.
-	 * We'll try to read the status a couple of times. If we do not succeed,
-	 * we'll just clear status and FIFO to be sure, although this is definitely
-	 * not the best solution.
+	 * Additionally, if we fail to read the status, we'll just clear it
+	 * and clear the TX FIFO.
 	 */
-	retries = 5;
-	while(retries){
-		if( !nrf24l01ReadSR(&nrfStatus) ) break;
-		retries--;
-	}
-	if(retries == 0){
+	if( nrf24l01ReadSR(&nrfStatus) ){
 		nrf24l01FlushTX();
 		nrf24l01StatusClearMaxRT();
 		nrf24l01StatusClearTXDS();
 		return 2;
 	}
-	if( nrfStatus & (1 << 4U) ){
+	if( nrfStatus & (1 << 4) ){
 		/* Maximum number of retries exceeded */
 		nrf24l01FlushTX();
 		nrf24l01StatusClearMaxRT();

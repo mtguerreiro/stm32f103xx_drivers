@@ -18,11 +18,16 @@
  * 		- Após enviar um comando, realizar a leitura para ver
  * 		se foi configurado corretamente
  * 		- Power-down? Ativer power-up somente quando for transmitir?
- * 		- Quando transmitindo e há um erro lendo o status, qual seria
- * 		um tratamento melhor?
- * 		- Na função nrf24l01Write, o pend pode voltar por ter recebido um
- * 		dado. Tratar isso.
- * 		- Repensar a função nrf24l01Write.
+ * 		- Funções nrf24l01Write e nrf24l01Read
+ * 			- Em ambos os casos é necessário ler o status. E se houver
+ * 			um erro na leitura? Qual o melhor tratamento para isso?
+ * 			- Para transmitir, seria possível ligar o dispositivo só
+ * 			no momento da transmissão?
+ * 			- Para receber, seria possível ligar o dispositivo só durante
+ * 			o tempo de recepção?
+ * 			- Ambas as funções utilizam as funções received and transmit
+ * 			payload. Essas funções podem retornar erro. Como tratar isso?
+ *
  */
 
 #ifndef NRF24L01_H_
@@ -74,7 +79,9 @@
 //=============================
 uint8_t nrf24l01Initialize(void);
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize);
 uint8_t nrf24l01ReadSR(uint8_t *status);
+uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
 uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);

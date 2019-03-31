@@ -112,6 +112,87 @@ uint8_t nrf24l01Initialize(void){
 	return 0;
 }
 //-----------------------------
+uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize){
+
+	uint8_t buffer[5];
+	uint8_t *addrBuffer;
+	uint8_t data;
+	//uint8_t rxtxAddress[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
+	uint8_t k;
+
+	/* Enables auto-ack on data pipe 0 */
+	data = 0x01;
+	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, buffer);
+	if( *buffer != data ){
+		return 1;
+	}
+
+	/* Enables RX address on data pipe 0 */
+	data = 0x01;
+	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, buffer);
+	if( *buffer != data ){
+		return 2;
+	}
+
+	/* Waits 2000 us for retransmission, tries up to 5 times */
+	data = 0x65;
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
+	if( *buffer != data ){
+		return 3;
+	}
+
+	/* Sets RF channel (frequency) */
+	data = 0x07;
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
+	if( *buffer != data ){
+		return 4;
+	}
+
+	/* Sets RX address */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_ADDR_P0, addrBuffer);
+	nrf24l01ReadRegister(NRF24L01_REG_RX_ADDR_P0, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]){
+			return 5;
+		}
+	}
+
+	/* Sets TX address */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_TX_ADDR, addrBuffer);
+	nrf24l01ReadRegister(NRF24L01_REG_TX_ADDR, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]){
+			return 6;
+		}
+	}
+
+	/* Sets number of bytes in RX payload data pipe 0 to 5 */
+	data = plSize;
+	if(data > 32) data = 32;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_PW_P0, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, buffer);
+	if(data != *buffer){
+		return 7;
+	}
+
+	nrf24l01FlushTX();
+	nrf24l01FlushRX();
+
+	nrf24l01StatusClear();
+
+	return 0;
+}
+//-----------------------------
 uint8_t nrf24l01ReadSR(uint8_t *status){
 
 	uint8_t command;
@@ -219,6 +300,20 @@ uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 	}
 
 //	configNRF24L01_CE_RESET;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01StatusClear(void){
+
+	uint8_t data;
+	uint8_t buffer;
+
+	data = (0x01U << 4U) | (0x01U << 5U) | (0x01U << 6U);
+	nrf24l01WriteRegister(NRF24L01_REG_STATUS, &data);
+	nrf24l01ReadRegister(NRF24L01_REG_STATUS, &buffer);
+
+	if(buffer & data) return 1;
 
 	return 0;
 }
@@ -482,8 +577,6 @@ void EXTI3_IRQHandler(void){
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
 	EXTI->PR |= (1U << 3);
-
-	gpioOutputToggle(GPIOB, GPIO_P11);
 
 	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
 	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );

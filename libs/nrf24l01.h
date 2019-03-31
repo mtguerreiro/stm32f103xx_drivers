@@ -11,6 +11,8 @@
  *
  *	-v0.1.1:
  *		- Added function to pend on IRQ pin
+ *		- Added status clear function
+ *		- Added RX and TX initialization functions
  *
  * Melhorias
  * 		- Após enviar um comando, realizar a leitura para ver
@@ -65,11 +67,13 @@
 /*-------- Functions --------*/
 //=============================
 uint8_t nrf24l01Initialize(void);
+uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
 uint8_t nrf24l01ReadSR(uint8_t *status);
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
 uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
 uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size);
+uint8_t nrf24l01StatusClear(void);
 uint8_t nrf24l01StatusClearMaxRT(void);
 uint8_t nrf24l01StatusClearTXDS(void);
 uint8_t nrf24l01StatusClearRXDR(void);

@@ -18,6 +18,8 @@
 /*--------- Defines ---------*/
 //=============================
 #define configMOVING_AVG_N		3
+
+#define configMOVING_AVG_Q_BASE	10
 //=============================
 
 
@@ -30,7 +32,7 @@ typedef struct{
 	uint16_t samples[1 << configMOVING_AVG_N];
 	uint16_t head;
 	uint16_t tail;
-	uint16_t psum;
+	uint32_t psum;
 }movingAvg_t;
 //-----------------------------
 //=============================

@@ -31,23 +31,25 @@ void movingAvgDataInitialize(movingAvg_t *data){
 //-----------------------------
 uint16_t movingAvgCompute(uint16_t sample, movingAvg_t *data){
 
-	uint16_t diff;
-	uint16_t n;
-	uint16_t n2;
+	uint32_t diff;
+//	uint16_t n;
+//	uint16_t n2;
 
-	n = 1 << configMOVING_AVG_N;
-	n2 = n >> 1;
+	uint32_t sampleIn;
+	uint32_t sampleOut;
 
-	if(sample > data->samples[data->tail]){
-		diff = (sample - data->samples[data->tail]);
-		if((diff & (n - 1)) >= n2) diff+= n2;
+//	n = 1 << configMOVING_AVG_N;
+//	n2 = n >> 1;
 
+	sampleIn = (uint32_t)(sample << configMOVING_AVG_Q_BASE);
+	sampleOut = (uint32_t)(data->samples[data->tail] << configMOVING_AVG_Q_BASE);
+
+	if(sampleIn > sampleOut){
+		diff = (sampleIn - sampleOut);
 		data->psum = data->psum + (diff >> configMOVING_AVG_N);
 	}
 	else{
-		diff = (data->samples[data->tail] - sample);
-		if((diff & (n - 1)) >= n2) diff+= n2;
-
+		diff = sampleOut - sampleIn;
 		data->psum = data->psum - (diff >> configMOVING_AVG_N);
 	}
 
@@ -58,7 +60,7 @@ uint16_t movingAvgCompute(uint16_t sample, movingAvg_t *data){
 	data->tail++;
 	if(data->tail >= (1 << configMOVING_AVG_N)) data->tail = 0;
 
-	return data->psum;
+	return (data->psum >> configMOVING_AVG_Q_BASE);
 }
 //-----------------------------
 //=============================

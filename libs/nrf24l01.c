@@ -114,83 +114,37 @@ uint8_t nrf24l01Initialize(void){
 //-----------------------------
 uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
 
-	uint8_t buffer[5];
-	uint8_t *addrBuffer;
-	uint8_t data;
-	//uint8_t rxtxAddress[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
-	uint8_t k;
+	uint8_t channel = 0x07;
 
 	/* Enables auto-ack on data pipe 0 */
-	data = 0x01;
-	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, buffer);
-	if( *buffer != data ){
-		return 1;
-	}
+	if( nrf24l01EnableAA(0x01) ) return 1;
 
 	/* Enables RX address on data pipe 0 */
-	data = 0x01;
-	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, buffer);
-	if( *buffer != data ){
-		return 2;
-	}
+	if( nrf24l01EnableRXADDR(0x01) ) return 2;
 
 	/* Waits 2000 us for retransmission, tries up to 5 times */
-	data = 0x65;
-	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
-	if( *buffer != data ){
-		return 3;
-	}
+	if( nrf24l01SetRetryTime(0x65) ) return 3;
 
 	/* Sets RF channel (frequency) */
-	data = 0x07;
-	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
-	if( *buffer != data ){
-		return 4;
-	}
+	if( nrf24l01SetRFChannel(channel) ) return 4;
 
 	/* Sets RX address */
-	addrBuffer = address;
-	nrf24l01WriteRegister(NRF24L01_REG_RX_ADDR_P0, addrBuffer);
-	nrf24l01ReadRegister(NRF24L01_REG_RX_ADDR_P0, buffer);
-	addrBuffer = address;
-	k = 5;
-	while(k--){
-		if(buffer[k] != addrBuffer[k]){
-			return 5;
-		}
-	}
+	if( nrf24l01SetRXAdress(address) ) return 5;
 
 	/* Sets TX address */
-	addrBuffer = address;
-	nrf24l01WriteRegister(NRF24L01_REG_TX_ADDR, addrBuffer);
-	nrf24l01ReadRegister(NRF24L01_REG_TX_ADDR, buffer);
-	addrBuffer = address;
-	k = 5;
-	while(k--){
-		if(buffer[k] != addrBuffer[k]){
-			return 6;
-		}
-	}
+	if( nrf24l01SetTXAdress(address) ) return 6;
 
 	/* Sets number of bytes in RX payload data pipe 0 to 5 */
-	data = plSize;
-	nrf24l01WriteRegister(NRF24L01_REG_RX_PW_P0, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, buffer);
-	if(data != *buffer){
-		return 7;
-	}
+	if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
 
 	/* Sets as primary RX (PRX) */
-	data = 0x0B;
-	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, buffer);
-	if(data != *buffer){
-		return 8;
-	}
+	if( nrf24l01SetPRX() ) return 8;
+//	data = 0x0B;
+//	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+//	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, buffer);
+//	if(data != *buffer){
+//		return 8;
+//	}
 
 	nrf24l01FlushTX();
 	nrf24l01FlushRX();
@@ -202,81 +156,296 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
 //-----------------------------
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize){
 
-	uint8_t buffer[5];
-	uint8_t *addrBuffer;
-	uint8_t data;
-	//uint8_t rxtxAddress[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
-	uint8_t k;
+	uint8_t channel = 0x07;
 
 	/* Enables auto-ack on data pipe 0 */
-	data = 0x01;
-	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, buffer);
-	if( *buffer != data ){
-		return 1;
-	}
+	if( nrf24l01EnableAA(0x01) ) return 1;
 
 	/* Enables RX address on data pipe 0 */
-	data = 0x01;
-	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, buffer);
-	if( *buffer != data ){
-		return 2;
-	}
+	if( nrf24l01EnableRXADDR(0x01) ) return 2;
 
 	/* Waits 2000 us for retransmission, tries up to 5 times */
-	data = 0x65;
-	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
-	if( *buffer != data ){
-		return 3;
-	}
+	if( nrf24l01SetRetryTime(0x65) ) return 3;
 
 	/* Sets RF channel (frequency) */
-	data = 0x07;
-	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, buffer);
-	if( *buffer != data ){
-		return 4;
-	}
+	if( nrf24l01SetRFChannel(channel) ) return 4;
 
 	/* Sets RX address */
-	addrBuffer = address;
-	nrf24l01WriteRegister(NRF24L01_REG_RX_ADDR_P0, addrBuffer);
-	nrf24l01ReadRegister(NRF24L01_REG_RX_ADDR_P0, buffer);
-	addrBuffer = address;
-	k = 5;
-	while(k--){
-		if(buffer[k] != addrBuffer[k]){
-			return 5;
-		}
-	}
+	if( nrf24l01SetRXAdress(address) ) return 5;
 
 	/* Sets TX address */
-	addrBuffer = address;
-	nrf24l01WriteRegister(NRF24L01_REG_TX_ADDR, addrBuffer);
-	nrf24l01ReadRegister(NRF24L01_REG_TX_ADDR, buffer);
-	addrBuffer = address;
-	k = 5;
-	while(k--){
-		if(buffer[k] != addrBuffer[k]){
-			return 6;
-		}
-	}
+	if( nrf24l01SetTXAdress(address) ) return 6;
 
-	/* Sets number of bytes in RX payload data pipe 0 to 5 */
-	data = plSize;
-	if(data > 32) data = 32;
-	nrf24l01WriteRegister(NRF24L01_REG_RX_PW_P0, &data);
-	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, buffer);
-	if(data != *buffer){
-		return 7;
-	}
+	/* Sets number of bytes in RX payload data pipe 0 to plSize */
+	if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
+
+	/* Sets as primary TX (PTX) */
+	if( nrf24l01SetPTX() ) return 8;
 
 	nrf24l01FlushTX();
 	nrf24l01FlushRX();
 
 	nrf24l01StatusClear();
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetRXPayloadSize(uint8_t size){
+
+	/*
+	 * Sets RX payload size for data pipe 0.
+	 */
+	uint8_t buffer;
+
+	/* Writes to NRF register */
+	if(size > 32) size = 32;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_PW_P0, &size);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, &buffer);
+	if(size != buffer) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetRXAdress(uint8_t *address){
+
+	/*
+	 * Sets RX address for data pipe 0.
+	 */
+
+	uint8_t buffer[5];
+	uint8_t *addrBuffer;
+	uint8_t k;
+
+	/* Writes to NRF register */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_RX_ADDR_P0, addrBuffer);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_RX_ADDR_P0, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]) return 1;
+	}
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetTXAdress(uint8_t *address){
+
+	/*
+	 * Sets TX address for data pipe 0.
+	 */
+
+	uint8_t buffer[5];
+	uint8_t *addrBuffer;
+	uint8_t k;
+
+	/* Writes to NRF register */
+	addrBuffer = address;
+	nrf24l01WriteRegister(NRF24L01_REG_TX_ADDR, addrBuffer);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_TX_ADDR, buffer);
+	addrBuffer = address;
+	k = 5;
+	while(k--){
+		if(buffer[k] != addrBuffer[k]) return 1;
+	}
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetRFChannel(uint8_t channel){
+
+	uint8_t buffer;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &channel);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, &buffer);
+	if(buffer != channel) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetRetryTime(uint8_t time){
+
+	uint8_t buffer;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &time);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, &buffer);
+	if(buffer != time) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
+
+	uint8_t data;
+	uint8_t buffer;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return 1;
+
+	/* Sets new pipes */
+	data |= pipes;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &buffer);
+	if(buffer != data) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01DisableRXADDR(uint8_t pipes){
+
+	uint8_t data;
+	uint8_t buffer;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return 1;
+
+	/* Clear pipes */
+	data &= ~pipes;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_EN_RXADDR, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &buffer);
+	if(buffer != data) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01EnableAA(uint8_t pipes){
+
+	uint8_t data;
+	uint8_t buffer;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return 1;
+
+	/* Clear pipes */
+	data |= pipes;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &buffer);
+	if(buffer != data) return 1;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01DisableAA(uint8_t pipes){
+
+	uint8_t data;
+	uint8_t buffer;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return 1;
+
+	/* Clear pipes */
+	data &= ~pipes;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_EN_AA, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &buffer);
+	if(buffer != data) return 2;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01PowerUp(void){
+
+	uint8_t buffer;
+	uint8_t data;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+	data |= 0x02;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+	if(buffer != data) return 2;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01PowerDown(void){
+
+	uint8_t buffer;
+	uint8_t data;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+	data &= ~0x02;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+	if(buffer != data) return 2;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetPRX(void){
+
+	uint8_t buffer;
+	uint8_t data;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+	data |= 0x01;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+	if(buffer != data) return 2;
+
+	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetPTX(void){
+
+	uint8_t buffer;
+	uint8_t data;
+
+	/* First, we must read the current settings so we don't overwrite them */
+	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+	data &= ~0x01;
+
+	/* Writes to NRF register */
+	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+	/* Reads from NRF register to make sure we wrote it correctly */
+	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+	if(buffer != data) return 2;
 
 	return 0;
 }

@@ -77,22 +77,46 @@
 //=============================
 /*-------- Functions --------*/
 //=============================
+/* Initialization */
 uint8_t nrf24l01Initialize(void);
-uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize);
-uint8_t nrf24l01ReadSR(uint8_t *status);
-uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
-uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
-uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
-uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
+
+/* TX/RX */
 uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
 uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size);
+uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
+uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
+uint8_t nrf24l01FlushTX(void);
+uint8_t nrf24l01FlushRX(void);
+
+/* Settings */
+uint8_t nrf24l01SetRXPayloadSize(uint8_t size);
+uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize);
+uint8_t nrf24l01SetRXAdress(uint8_t *address);
+uint8_t nrf24l01SetTXAdress(uint8_t *address);
+uint8_t nrf24l01SetRFChannel(uint8_t channel);
+uint8_t nrf24l01SetRetryTime(uint8_t time);
+uint8_t nrf24l01EnableRXADDR(uint8_t pipes);
+uint8_t nrf24l01DisableRXADDR(uint8_t pipes);
+uint8_t nrf24l01EnableAA(uint8_t pipes);
+uint8_t nrf24l01DisableAA(uint8_t pipes);
+uint8_t nrf24l01PowerUp(void);
+uint8_t nrf24l01PowerDown(void);
+uint8_t nrf24l01SetPRX(void);
+uint8_t nrf24l01SetPTX(void);
+
+/* Direct comm */
+uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
+uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
+
+/* Status */
+uint8_t nrf24l01ReadSR(uint8_t *status);
 uint8_t nrf24l01StatusClear(void);
 uint8_t nrf24l01StatusClearMaxRT(void);
 uint8_t nrf24l01StatusClearTXDS(void);
 uint8_t nrf24l01StatusClearRXDR(void);
-uint8_t nrf24l01FlushTX(void);
-uint8_t nrf24l01FlushRX(void);
+
+/* Control */
 void nr24l01SetCE(void);
 void nr24l01ResetCE(void);
 uint8_t nrf24l01Pend(uint32_t ticks);

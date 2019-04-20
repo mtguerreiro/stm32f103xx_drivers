@@ -112,9 +112,9 @@ uint8_t nrf24l01Initialize(void){
 	return 0;
 }
 //-----------------------------
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
-	uint8_t channel = 0x07;
+	//uint8_t channel = 0x07;
 
 	/* Enables auto-ack on data pipe 0 */
 	if( nrf24l01EnableAA(0x01) ) return 1;
@@ -139,12 +139,6 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
 
 	/* Sets as primary RX (PRX) */
 	if( nrf24l01SetPRX() ) return 8;
-//	data = 0x0B;
-//	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
-//	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, buffer);
-//	if(data != *buffer){
-//		return 8;
-//	}
 
 	nrf24l01FlushTX();
 	nrf24l01FlushRX();
@@ -154,9 +148,9 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize){
 	return 0;
 }
 //-----------------------------
-uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize){
+uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
-	uint8_t channel = 0x07;
+	//uint8_t channel = 0x07;
 
 	/* Enables auto-ack on data pipe 0 */
 	if( nrf24l01EnableAA(0x01) ) return 1;

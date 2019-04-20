@@ -90,8 +90,8 @@ uint8_t nrf24l01FlushRX(void);
 
 /* Settings */
 uint8_t nrf24l01SetRXPayloadSize(uint8_t size);
-uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize);
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize);
+uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel);
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel);
 uint8_t nrf24l01SetRXAdress(uint8_t *address);
 uint8_t nrf24l01SetTXAdress(uint8_t *address);
 uint8_t nrf24l01SetRFChannel(uint8_t channel);

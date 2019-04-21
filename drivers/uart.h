@@ -44,7 +44,7 @@
 
 /* RX and TX queue size */
 #define configUART1_RXQ_SIZE			35
-#define configUART1_TXQ_SIZE			100
+#define configUART1_TXQ_SIZE			200
 
 #define configUART2_RXQ_SIZE			25
 #define configUART2_TXQ_SIZE			25

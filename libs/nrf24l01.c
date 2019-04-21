@@ -173,8 +173,8 @@ uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
 	/* Sets number of bytes in RX payload data pipe 0 to plSize */
 	if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
 
-	/* Sets as primary TX (PTX) */
-	if( nrf24l01SetPTX() ) return 8;
+//	/* Sets as primary TX (PTX) */
+//	if( nrf24l01SetPTX() ) return 8;
 
 	nrf24l01FlushTX();
 	nrf24l01FlushRX();
@@ -257,10 +257,10 @@ uint8_t nrf24l01SetRFChannel(uint8_t channel){
 	uint8_t buffer;
 
 	/* Writes to NRF register */
-	nrf24l01WriteRegister(NRF24L01_REG_SETUP_RETR, &channel);
+	nrf24l01WriteRegister(NRF24L01_REG_RF_CH, &channel);
 
 	/* Reads from NRF register to make sure we wrote it correctly */
-	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, &buffer);
+	nrf24l01ReadRegister(NRF24L01_REG_RF_CH, &buffer);
 	if(buffer != channel) return 1;
 
 	return 0;
@@ -469,7 +469,8 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 	nr24l01SetCE();
 
 	if( nrf24l01Pend(pendTicks) ){
-		/* Nothing received */
+		/* Nothing received. Stops listening and returns. */
+	    nr24l01ResetCE();
 		return 1;
 	}
 
@@ -574,6 +575,10 @@ uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 
 	configNRF24L01_CSN_SET;
 
+	/*
+	 * A high pulse must be given to CE so transmission can start. This pulse
+	 * must last at least 10 us. Thus, we set it now and clear it later.
+	 * */
 	configNRF24L01_CE_SET;
 	/*
 	 * While sending the data (command + data), we also received one

@@ -27,6 +27,11 @@
  * 			o tempo de recepção?
  * 			- Ambas as funções utilizam as funções received and transmit
  * 			payload. Essas funções podem retornar erro. Como tratar isso?
+ * 			- Para leitura, é necessário informar a quantidade de bytes a
+ * 			serem lidas. Porém, os bytes são apenas recebidos se a quantidade
+ * 			configurada no registrador do payload size for correta. Uma
+ * 			melhoria é ler esse registrador para não ser necessário informar
+ * 			a quantidade a ser lida ao chamar a função nrf24l01Read.
  *
  */
 

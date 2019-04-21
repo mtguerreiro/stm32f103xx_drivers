@@ -37,8 +37,8 @@
 #define configSPI3_ENABLED			0
 
 /* RX and TX queue size */
-#define configSPI1_RXQ_SIZE			25
-#define configSPI1_TXQ_SIZE			25
+#define configSPI1_RXQ_SIZE			40
+#define configSPI1_TXQ_SIZE			40
 
 #define configSPI2_RXQ_SIZE			25
 #define configSPI2_TXQ_SIZE			25

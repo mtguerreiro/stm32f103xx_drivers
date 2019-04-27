@@ -72,9 +72,7 @@ uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes){
 
 	queueSize = (uint32_t)uxQueueSpacesAvailable(spiTXQueue[qidx]);
 
-	if(nbytes > queueSize) {
-	    return 1;
-	}
+	if(nbytes > queueSize) return 1;
 
 	while(nbytes--){
 		xQueueSendToBack(spiTXQueue[qidx], txbuffer++, 0);
@@ -103,15 +101,6 @@ uint8_t spiWaitTX(SPI_TypeDef *spi, uint32_t waitcycles){
 	if(!waitcycles) return 1;
 
 	return 0;
-}
-//-----------------------------
-uint16_t spiSpacesAvailable(SPI_TypeDef *spi){
-
-    uint8_t qidx;
-
-    qidx = spiQueueIndex(spi);
-
-    return uxQueueSpacesAvailable(spiTXQueue[qidx]);
 }
 //-----------------------------
 //=============================
@@ -302,7 +291,7 @@ void SPI1_IRQHandler(void){
 	/* Data received */
 	if( spiStatus & SPI_SR_RXNE ){
 		rxData = (uint8_t) SPI1->DR;
-#if (configSPI_INTERRUPT_YIELD == 1)
+#if (configSPI1_INTERRUPT_YIELD == 1)
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 		xQueueSendToBackFromISR(spiRXQueue[0], &rxData, &xHigherPriorityTaskWoken);
 		if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
@@ -344,7 +333,7 @@ void SPI2_IRQHandler(void){
 
 	}
 	/* Transmitter ready */
-	if( spiStatus & SPI_SR_TXE ){
+	if( (spiStatus & SPI_SR_TXE) && (SPI2->CR2 & SPI_CR2_TXEIE) ){
 		if( xQueueReceiveFromISR(spiTXQueue[1], &txData, NULL) == pdTRUE){
 			SPI2->DR = (uint16_t)txData;
 		}
@@ -377,7 +366,7 @@ void SPI3_IRQHandler(void){
 
 	}
 	/* Transmitter ready */
-	if( spiStatus & SPI_SR_TXE ){
+	if( (spiStatus & SPI_SR_TXE) && (SPI3->CR2 & SPI_CR2_TXEIE) ){
 		if( xQueueReceiveFromISR(spiTXQueue[2], &txData, NULL) == pdTRUE){
 			SPI3->DR = (uint16_t)txData;
 		}

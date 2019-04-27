@@ -109,6 +109,7 @@ uint8_t nrf24l01PowerUp(void);
 uint8_t nrf24l01PowerDown(void);
 uint8_t nrf24l01SetPRX(void);
 uint8_t nrf24l01SetPTX(void);
+uint8_t nrf24l01TXPower(uint8_t power);
 
 /* Direct comm */
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);

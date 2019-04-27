@@ -58,15 +58,26 @@ uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes){
 
 	uint32_t queueSize;
 	uint8_t qidx;
+	uint8_t *txbuffer;
+
+	/*
+	 * We save the buffer pointer in a local variable to preserve the
+	 * original pointer's value. If spiWrite is called with a pointer
+	 * instead of an address, the pointer should not have its value
+	 * modified.
+	 */
+	txbuffer = buffer;
 
 	qidx = spiQueueIndex(spi);
 
 	queueSize = (uint32_t)uxQueueSpacesAvailable(spiTXQueue[qidx]);
 
-	if(nbytes > queueSize) return 1;
+	if(nbytes > queueSize) {
+	    return 1;
+	}
 
 	while(nbytes--){
-		if( xQueueSendToBack(spiTXQueue[qidx], buffer++, 0) != pdTRUE ) return 2;
+		xQueueSendToBack(spiTXQueue[qidx], txbuffer++, 0);
 	}
 
 	spiTriggerTransmission(spi);
@@ -92,6 +103,15 @@ uint8_t spiWaitTX(SPI_TypeDef *spi, uint32_t waitcycles){
 	if(!waitcycles) return 1;
 
 	return 0;
+}
+//-----------------------------
+uint16_t spiSpacesAvailable(SPI_TypeDef *spi){
+
+    uint8_t qidx;
+
+    qidx = spiQueueIndex(spi);
+
+    return uxQueueSpacesAvailable(spiTXQueue[qidx]);
 }
 //-----------------------------
 //=============================
@@ -173,7 +193,7 @@ static uint8_t spiHWInitialize(SPI_TypeDef *spi, uint16_t clockDiv){
 	NVIC_EnableIRQ(irqn);
 
 	/* Sets SPI configs */
-	spi->CR1 = (uint16_t)(clockDiv << 3U) | SPI_CR1_MSTR; // fpclk/32 -> 1125000 bps
+	spi->CR1 = (uint16_t)(clockDiv << 3U) | SPI_CR1_MSTR | SPI_CR1_SSI | SPI_CR1_SSM; // fpclk/32 -> 1125000 bps
 	spi->CR2 = SPI_CR2_RXNEIE;
 	spi->CR1 |= SPI_CR1_SPE;
 
@@ -289,10 +309,9 @@ void SPI1_IRQHandler(void){
 #else
 		xQueueSendToBackFromISR(spiRXQueue[0], &rxData, NULL);
 #endif
-
 	}
 	/* Transmitter ready */
-	if( spiStatus & SPI_SR_TXE ){
+	if( (spiStatus & SPI_SR_TXE) && (SPI1->CR2 & SPI_CR2_TXEIE) ){
 		if( xQueueReceiveFromISR(spiTXQueue[0], &txData, NULL) == pdTRUE){
 			SPI1->DR = (uint16_t)txData;
 		}

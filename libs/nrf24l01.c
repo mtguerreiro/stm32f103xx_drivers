@@ -72,50 +72,80 @@ uint8_t nrf24l01Initialize(void){
 	configNRF24L01_CSN_SET;
 	configNRF24L01_CE_RESET;
 
-//	/* Power up module
-//	 * - Bit 6: Mask data received interrupt
-//	 * 		If 0, RX_DR will be reflected on IRQn pin. If 0, RX_DR is not
-//	 * 		reflected on IRQn pin.
-//	 *
-//	 * - Bit 5: Mask data sent interrupt
-//	 * 		If 0, TX_DS will be reflected on IRQn pin. If 0, TX_DS is not
-//	 * 		reflected on IRQn pin.
-//	 *
-//	 * 	- Bit 4: Mask maximum retries interrupt
-//	 * 		 If 0, MAX_RT will be reflected on IRQn pin. If 0, MAX_RT is not
-//	 * 		reflected on IRQn pin.
-//	 *
-//	 * 	- Bit 3: Enables CRC
-//	 * 		If 1, CRC is enabled. This will also be forced to 1 if EN_AA is high.
-//	 *
-//	 * 	- Bit 2: CRC encoding scheme
-//	 * 		If 0, 1 byte is used for CRC. If 1, two bytes are used.
-//	 *
-//	 * 	- Bit 1: Power up
-//	 * 		If 1, device is powered up. If 0, device is off.
-//	 *
-//	 * 	- Bit 0: Primary receiver
-//	 * 		If 1, device is configured as primary receiver. If 0, device is
-//	 * 		configured as primary transmitter.
-//	 * */
-//	data = 0x0A;
-//	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
-//
-//	/* After powering the device, we must wait around 1.5ms */
-//	k = 108000;
-//	while(k--);
-//
-//	/* Check if module has been correctly configured */
-//	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-//
-//	if(buffer != data) return 3;
-
 	return 0;
 }
 //-----------------------------
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
+uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
-	//uint8_t channel = 0x07;
+    /* Starts listening */
+    nr24l01SetCE();
+
+    if( nrf24l01Pend(pendTicks) ){
+        /* Nothing received. Stops listening and returns. */
+        nr24l01ResetCE();
+        return 1;
+    }
+
+    /*
+     * If the device is in RX mode and the pend returned 0, then we certainly
+     * received data. Thus, we just retrieve it from the FIFO and clear the
+     * data received flag.
+     */
+    nrf24l01ReceivePayload(buffer, size);
+    nrf24l01StatusClearRXDR();
+
+    /* Stops listening */
+    nr24l01ResetCE();
+
+    return 0;
+}
+//-----------------------------
+uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
+
+    uint8_t nrfStatus;
+
+    nrf24l01TransmitPayload(buffer, size);
+
+    if( nrf24l01Pend(pendTicks) ){
+        /*
+         * Pend should always return 0, because if transmission fails, it
+         * will be due to maximum retries being reached (assuming enough
+         * ticks have been provided). Thus, we should never get here. If
+         * we do, we'll clear everything related to transmission.
+         */
+        nrf24l01FlushTX();
+        nrf24l01StatusClearMaxRT();
+        nrf24l01StatusClearTXDS();
+        return 1;
+    }
+
+    /*
+     * Now, we check the status. If maximum number of retries were reached,
+     * we'll flush the TX FIFO and clear the corresponding flag. Else, data
+     * was sent and we clear the TXDS flag only.
+     * Additionally, if we fail to read the status, we'll just clear it
+     * and clear the TX FIFO.
+     */
+    if( nrf24l01ReadSR(&nrfStatus) ){
+        nrf24l01FlushTX();
+        nrf24l01StatusClearMaxRT();
+        nrf24l01StatusClearTXDS();
+        return 2;
+    }
+    if( nrfStatus & (1 << 4) ){
+        /* Maximum number of retries exceeded */
+        nrf24l01FlushTX();
+        nrf24l01StatusClearMaxRT();
+        return 3;
+    }
+
+    /* Data sent successfully */
+    nrf24l01StatusClearTXDS();
+
+    return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
 	/* Enables auto-ack on data pipe 0 */
 	if( nrf24l01EnableAA(0x01) ) return 1;
@@ -150,8 +180,6 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 }
 //-----------------------------
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
-
-	//uint8_t channel = 0x07;
 
 	/* Enables auto-ack on data pipe 0 */
 	if( nrf24l01EnableAA(0x01) ) return 1;
@@ -279,6 +307,46 @@ uint8_t nrf24l01SetRetryTime(uint8_t time){
 	if(buffer != time) return 1;
 
 	return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetPRX(void){
+
+    uint8_t buffer;
+    uint8_t data;
+
+    /* First, we must read the current settings so we don't overwrite them */
+    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+    data |= 0x01;
+
+    /* Writes to NRF register */
+    nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+    /* Reads from NRF register to make sure we wrote it correctly */
+    nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+    if(buffer != data) return 2;
+
+    return 0;
+}
+//-----------------------------
+uint8_t nrf24l01SetPTX(void){
+
+    uint8_t buffer;
+    uint8_t data;
+
+    /* First, we must read the current settings so we don't overwrite them */
+    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+
+    data &= (uint8_t)(~0x01);
+
+    /* Writes to NRF register */
+    nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
+
+    /* Reads from NRF register to make sure we wrote it correctly */
+    nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
+    if(buffer != data) return 2;
+
+    return 0;
 }
 //-----------------------------
 uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
@@ -410,46 +478,6 @@ uint8_t nrf24l01PowerDown(void){
 	return 0;
 }
 //-----------------------------
-uint8_t nrf24l01SetPRX(void){
-
-	uint8_t buffer;
-	uint8_t data;
-
-	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
-
-	data |= 0x01;
-
-	/* Writes to NRF register */
-	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
-
-	/* Reads from NRF register to make sure we wrote it correctly */
-	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-	if(buffer != data) return 2;
-
-	return 0;
-}
-//-----------------------------
-uint8_t nrf24l01SetPTX(void){
-
-	uint8_t buffer;
-	uint8_t data;
-
-	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
-
-	data &= (uint8_t)(~0x01);
-
-	/* Writes to NRF register */
-	nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
-
-	/* Reads from NRF register to make sure we wrote it correctly */
-	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-	if(buffer != data) return 2;
-
-	return 0;
-}
-//-----------------------------
 uint8_t nrf24l01ReadSR(uint8_t *status){
 
 	uint8_t command;
@@ -465,76 +493,6 @@ uint8_t nrf24l01ReadSR(uint8_t *status){
 	configNRF24L01_CSN_SET;
 
 	if( spiRead(SPI1, status, 0) ) return 1;
-
-	return 0;
-}
-//-----------------------------
-uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
-
-	/* Starts listening */
-	nr24l01SetCE();
-
-	if( nrf24l01Pend(pendTicks) ){
-		/* Nothing received. Stops listening and returns. */
-	    nr24l01ResetCE();
-		return 1;
-	}
-
-	/*
-	 * If the device is in RX mode and the pend returned 0, then we certainly
-	 * received data. Thus, we just retrieve it from the FIFO and clear the
-	 * data received flag.
-	 */
-	nrf24l01ReceivePayload(buffer, size);
-	nrf24l01StatusClearRXDR();
-
-	/* Stops listening */
-	nr24l01ResetCE();
-
-	return 0;
-}
-//-----------------------------
-uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
-
-	uint8_t nrfStatus;
-
-	nrf24l01TransmitPayload(buffer, size);
-
-	if( nrf24l01Pend(pendTicks) ){
-		/*
-		 * Pend should always return 0, because if transmission fails, it
-		 * will be due to maximum retries being reached (assuming enough
-		 * ticks have been provided). Thus, we should never get here. If
-		 * we do, we'll clear everything related to transmission.
-		 */
-		nrf24l01FlushTX();
-		nrf24l01StatusClearMaxRT();
-		nrf24l01StatusClearTXDS();
-		return 1;
-	}
-
-	/*
-	 * Now, we check the status. If maximum number of retries were reached,
-	 * we'll flush the TX FIFO and clear the corresponding flag. Else, data
-	 * was sent and we clear the TXDS flag only.
-	 * Additionally, if we fail to read the status, we'll just clear it
-	 * and clear the TX FIFO.
-	 */
-	if( nrf24l01ReadSR(&nrfStatus) ){
-		nrf24l01FlushTX();
-		nrf24l01StatusClearMaxRT();
-		nrf24l01StatusClearTXDS();
-		return 2;
-	}
-	if( nrfStatus & (1 << 4) ){
-		/* Maximum number of retries exceeded */
-		nrf24l01FlushTX();
-		nrf24l01StatusClearMaxRT();
-		return 3;
-	}
-
-	/* Data sent successfully */
-	nrf24l01StatusClearTXDS();
 
 	return 0;
 }
@@ -599,18 +557,14 @@ uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 
     uint8_t *rxBuffer;
-    uint8_t dummy = 0xFF;
-	uint8_t command;
+    uint8_t txBuffer[6] = {0x00};
 	uint8_t k;
 
 	configNRF24L01_CSN_RESET;
 
-	command = 0x61;
-	spiWrite(SPI1, &command, 1);
-	k = size;
-	while(k--){
-		spiWrite(SPI1, &dummy, 1);
-	}
+	txBuffer[0] = 0x61;
+
+	spiWrite(SPI1, txBuffer, sizeof(txBuffer));
 	spiWaitTX(SPI1, 0xFFFF);
 
 	configNRF24L01_CSN_SET;
@@ -621,12 +575,10 @@ uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 	 * save the rest.
 	 *
      * We save the buffer pointer in a local variable to preserve the
-     * original pointer's value. If spiWrite is called with a pointer
-     * instead of an address, the pointer should not have its value
-     * modified.
+     * original pointer's value.
      */
 	rxBuffer = buffer;
-	if( spiRead(SPI1, &dummy, 0) ) return 2;
+	if( spiRead(SPI1, txBuffer, 0) ) return 2;
 	k = size;
 	while(k--){
 		if( spiRead(SPI1, rxBuffer++, 0) ) return 3;
@@ -833,7 +785,7 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 //-----------------------------
 static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
-    uint8_t txBuffer[6] = {0xFF};
+    uint8_t txBuffer[6] = {0x00};
     uint8_t *rxBuffer;
     uint8_t k;
 

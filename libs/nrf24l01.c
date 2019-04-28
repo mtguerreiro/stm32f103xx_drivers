@@ -40,12 +40,57 @@
 //=============================
 /*-------- Prototypes -------*/
 //=============================
+//-----------------------------
 static void nrf24l01PortInitialize(void);
+//-----------------------------
 static void nrf24l01EXTIInitialize(void);
+//-----------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer);
+//-----------------------------
 static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer);
+//-----------------------------
 static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer);
+//-----------------------------
 static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
+//-----------------------------
+/* Transmitting/receiving functionalities */
+//-----------------------------
+/** @brief Transmits a payload to the configured TX address.
+ *
+ * The transmit payload command is sent, along with the data informed. Since
+ * SPI transmits and received data simultaneously, all data received while
+ * writing to the NRF's register are cleared from the RX queue.
+ *
+ * Here, data is not actually sent through RF. The payload is only written to
+ * the NRF's register. However, actual data transmission should start as soon
+ * after the payload is sent.
+ *
+ * This function is not meant to be used alone, and pending to the IRQ pin
+ * should be done right after, to check if data was successfully sent.
+ *
+ * @param buffer Pointer to buffer containing data to be sent.
+ * @param size Number of bytes to transmit.
+ * @return 0 if data was sent successfully, 1 if not enough bytes were
+ *         received during transmission, which can indicate that
+ *         transmission failed.
+ *
+ */
+static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
+//-----------------------------
+/** @brief Receives a payload.
+ *
+ * The NRF's RX buffer is read. It is necessary to inform the number of butes
+ * to be read, which is the same as the configured RX payload size.
+ *
+ * @param buffer Pointer to buffer that will store the payload bytes. The
+ *               pointer's value is not modified by this function.
+ * @param size RX payload size.
+ *
+ * @return 0 if data data was retrieved from the NRF RX buffer, 1 if could
+ *         not read data from NRF.
+ */
+static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size);
+//-----------------------------
 //=============================
 
 //=============================
@@ -171,10 +216,10 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 	/* Sets as primary RX (PRX) */
 	if( nrf24l01SetPRX() ) return 8;
 
-	nrf24l01FlushTX();
-	nrf24l01FlushRX();
+	if( nrf24l01FlushTX() ) return 9;
+	if( nrf24l01FlushRX() ) return 10;
 
-	nrf24l01StatusClear();
+	if( nrf24l01StatusClear()) return 11;
 
 	return 0;
 }
@@ -365,7 +410,7 @@ uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &buffer);
-	if(buffer != data) return 1;
+	if(buffer != data) return 2;
 
 	return 0;
 }
@@ -407,7 +452,7 @@ uint8_t nrf24l01EnableAA(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &buffer);
-	if(buffer != data) return 1;
+	if(buffer != data) return 2;
 
 	return 0;
 }
@@ -516,72 +561,6 @@ uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer){
 	}
 	else{
 		if( nrf24l01WriteRegisterSingle(reg, buffer) ) return 1;
-	}
-
-	return 0;
-}
-//-----------------------------
-uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
-
-	uint8_t command;
-	uint8_t k;
-
-	configNRF24L01_CSN_RESET;
-
-	command = 0xA0;
-	spiWrite(SPI1, &command, 1);
-    spiWrite(SPI1, buffer, size);
-	spiWaitTX(SPI1, 0xFFFF);
-
-	configNRF24L01_CSN_SET;
-
-	/*
-	 * A high pulse must be given to CE so transmission can start. This pulse
-	 * must last at least 10 us. Thus, we set it now and clear it later.
-	 * */
-	configNRF24L01_CE_SET;
-	/*
-	 * While sending the data (command + data), we also received one
-	 * byte for each byte transmitted. We just clear them.
-	 */
-	k = (uint8_t)(size + 1U);
-	while(k--){
-		if( spiRead(SPI1, &command, 0) ) return 2;
-	}
-
-	configNRF24L01_CE_RESET;
-
-	return 0;
-}
-//-----------------------------
-uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
-
-    uint8_t *rxBuffer;
-    uint8_t txBuffer[6] = {0x00};
-	uint8_t k;
-
-	configNRF24L01_CSN_RESET;
-
-	txBuffer[0] = 0x61;
-
-	spiWrite(SPI1, txBuffer, sizeof(txBuffer));
-	spiWaitTX(SPI1, 0xFFFF);
-
-	configNRF24L01_CSN_SET;
-
-	/*
-	 * While sending the data (command + data), we also received one
-	 * byte for each byte transmitted. We clear the first one and
-	 * save the rest.
-	 *
-     * We save the buffer pointer in a local variable to preserve the
-     * original pointer's value.
-     */
-	rxBuffer = buffer;
-	if( spiRead(SPI1, txBuffer, 0) ) return 2;
-	k = size;
-	while(k--){
-		if( spiRead(SPI1, rxBuffer++, 0) ) return 3;
 	}
 
 	return 0;
@@ -868,6 +847,72 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 	}
 
 	return 0;
+}
+//-----------------------------
+static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
+
+    uint8_t command;
+    uint8_t k;
+
+    configNRF24L01_CSN_RESET;
+
+    command = 0xA0;
+    spiWrite(SPI1, &command, 1);
+    spiWrite(SPI1, buffer, size);
+    spiWaitTX(SPI1, 0xFFFF);
+
+    configNRF24L01_CSN_SET;
+
+    /*
+     * A high pulse must be given to CE so transmission can start. This pulse
+     * must last at least 10 us. Thus, we set it now and clear it later.
+     * */
+    configNRF24L01_CE_SET;
+    /*
+     * While sending the data (command + data), we also received one
+     * byte for each byte transmitted. We just clear them.
+     */
+    k = (uint8_t)(size + 1U);
+    while(k--){
+        if( spiRead(SPI1, &command, 0) ) return 1;
+    }
+
+    configNRF24L01_CE_RESET;
+
+    return 0;
+}
+//-----------------------------
+static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
+
+    uint8_t *rxBuffer;
+    uint8_t txBuffer[6] = {0x00};
+    uint8_t k;
+
+    configNRF24L01_CSN_RESET;
+
+    txBuffer[0] = 0x61;
+
+    spiWrite(SPI1, txBuffer, sizeof(txBuffer));
+    spiWaitTX(SPI1, 0xFFFF);
+
+    configNRF24L01_CSN_SET;
+
+    /*
+     * While sending the data (command + data), we also received one
+     * byte for each byte transmitted. We clear the first one and
+     * save the rest.
+     *
+     * We save the buffer pointer in a local variable to preserve the
+     * original pointer's value.
+     */
+    rxBuffer = buffer;
+    if( spiRead(SPI1, txBuffer, 0) ) return 1;
+    k = size;
+    while(k--){
+        if( spiRead(SPI1, rxBuffer++, 0) ) return 1;
+    }
+
+    return 0;
 }
 //-----------------------------
 //=============================

@@ -1,6 +1,6 @@
 /**
- * @file radio.h
- * @brief Implements radio communication with NRF24L01 device for the Garmo module.
+ * @file spi.h
+ * @brief Simple SPI driver for STM32F103x devices.
  *
  * This is a very simple SPI driver. It is not flexible and most options are
  * hard coded. However, it has integration with the FreeRTOS kernel, using
@@ -20,15 +20,15 @@
  * indefinitely for a byte to arrive, if necessary (although the module only
  * works in master mode).
  *
- *	Current version: 0.1.1
+ * Current version: 0.1.1
  *
- *	-v0.1.0:
- *		- Adapted to new model
+ * -v0.1.0:
+ *  - Adapted to new model
  *
  * -v0.1.1:
- *      - General improvements
- *      - Sets SSI and SSM bits during initialization
- *      - Initial documentation
+ *  - General improvements
+ *  - Sets SSI and SSM bits during initialization
+ *  - Initial documentation
  *
  *	Melhorias
  *		- Melhorar uso das filas (criar somente a quantidade

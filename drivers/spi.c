@@ -1,5 +1,6 @@
-/*
- * spi.c
+/**
+ * @file spi.c
+ * @brief Source file for SPI driver.
  *
  *  Created on: Dec 9, 2018
  *      Author: Marco

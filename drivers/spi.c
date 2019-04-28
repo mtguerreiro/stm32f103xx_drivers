@@ -22,7 +22,9 @@
 //=============================
 /*---------- Queues ---------*/
 //=============================
+/** @brief SPI TX queues. */
 QueueHandle_t spiTXQueue[3];
+/** @brief SPI RX queues */
 QueueHandle_t spiRXQueue[3];
 //=============================
 
@@ -35,10 +37,46 @@ QueueHandle_t spiRXQueue[3];
 //=============================
 /*-------- Prototypes -------*/
 //=============================
+//-----------------------------
+/** @brief Initializes SPI hardware.
+ *
+ * SPI settings, interrupts and GPIO are set.
+ *
+ * @param spi SPI to be initialized.
+ * @param clockDiv Clock divisor for the selected SPI peripheral. Must be one
+ *                 of spiClockDiv_t values.
+ *
+ * @return 0 if initialization succeeded, 1 if initialization failed. This
+ *         can only occur if the SPI informed is not valid.
+ * */
 static uint8_t spiHWInitialize(SPI_TypeDef *spi, uint16_t clockDiv);
+//-----------------------------
+/** @brief Initializes the RX and TX queues.
+ *
+ * @param spi SPI to be initialized.
+ *
+ * @return 0 if initialization suceedded, 1 if failed to create any of the
+ *         queues.
+ */
 static uint8_t spiSWInitialize(SPI_TypeDef *spi);
+//-----------------------------
+/** @brief Triggers SPI transmission.
+ *
+ * Calling this functions enables TX empty interruption.
+ *
+ * @param spi SPI to enable TX empty interruption.
+ */
 static void spiTriggerTransmission(SPI_TypeDef *spi);
+//-----------------------------
+/** @brief Returns queue index for the informed SPI.
+ *
+ * This is used to index the RX/TX queue vector.
+ *
+ * @param spi SPI to determine index.
+ * @return Index of informed SPI.
+ */
 static uint8_t spiQueueIndex(SPI_TypeDef *spi);
+//-----------------------------
 //=============================
 
 //=============================
@@ -56,24 +94,20 @@ uint8_t spiInitialize(SPI_TypeDef *spi, uint16_t clockDiv){
 //-----------------------------
 uint8_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes){
 
+    uint8_t qidx;
+    uint8_t *txbuffer;
 	uint32_t queueSize;
-	uint8_t qidx;
-	uint8_t *txbuffer;
-
-	/*
-	 * We save the buffer pointer in a local variable to preserve the
-	 * original pointer's value. If spiWrite is called with a pointer
-	 * instead of an address, the pointer should not have its value
-	 * modified.
-	 */
-	txbuffer = buffer;
 
 	qidx = spiQueueIndex(spi);
 
 	queueSize = (uint32_t)uxQueueSpacesAvailable(spiTXQueue[qidx]);
-
 	if(nbytes > queueSize) return 1;
 
+    /*
+     * We save the buffer pointer in a local variable to preserve the
+     * original pointer's value.
+     */
+    txbuffer = buffer;
 	while(nbytes--){
 		xQueueSendToBack(spiTXQueue[qidx], txbuffer++, 0);
 	}
@@ -221,16 +255,13 @@ static uint8_t spiSWInitialize(SPI_TypeDef *spi){
 		qRXSize = configSPI3_RXQ_SIZE;
 		break;
 #endif
-
-	default:
-		return 1;
 	}
 
 	spiTXQueue[qidx] = xQueueCreate(qTXSize, 1);
-	if(spiTXQueue[qidx] == NULL) return 2;
+	if(spiTXQueue[qidx] == NULL) return 1;
 
 	spiRXQueue[qidx] = xQueueCreate(qRXSize, 1);
-	if(spiRXQueue[qidx] == NULL) return 3;
+	if(spiRXQueue[qidx] == NULL) return 1;
 
 	return 0;
 }

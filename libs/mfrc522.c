@@ -46,13 +46,63 @@
 #define MFRC522_RESET_SET			gpioOutputSet(MFRC522_RESET_PORT, MFRC522_RESET_PIN)
 #define MFRC522_RESET_RESET			gpioOutputReset(MFRC522_RESET_PORT, MFRC522_RESET_PIN)
 
-/* MFRC522 registers */
+/* MFRC522 */
 //-----------------------------
-//#define configMFRC522_STATUS1_REG	0x07
-//#define configMFRC522_STATUS2_REG	0x08
+/* Registers */
+#define MFRC522_REG_COMMAND		0x01
+#define MFRC522_REG_COMM_IRQ	0x04
+#define MFRC522_REG_ERROR		0x06
+#define MFRC522_REG_STATUS1		0x07
+#define MFRC522_REG_STATUS2		0x08
+#define MFRC522_REG_FIFO_DATA	0x09
+#define MFRC522_REG_FIFO_LEVEL	0x0A
+#define MFRC522_REG_MODE		0x11
+#define MFRC522_REG_TX_ASK		0x15
+#define MFRC522_REG_RFC_FG		0x26
+#define MFRC522_REG_TMODE		0x2A
+#define MFRC522_REG_TPRESCALER	0x2B
+#define MFRC522_REG_TRELOAD_H	0x2C
+#define MFRC522_REG_TRELOAD_L	0x2D
+#define MFRC522_REG_TEST_SEL1	0x31
+#define MFRC522_REG_AUTO_TEST	0x36
+
+/* Commands */
+#define MFRC522_CMD_IDLE		0x00
+#define MFRC522_CMD_MEM			0x01
+#define MFRC522_CMD_CALC_CRC	0x03
+#define MFRC522_CMD_NO_CHANGE	0x07
+#define MFRC522_CMD_SOFT_RESET	0x0F
 //-----------------------------
 //=============================
 
+//=============================
+/*-------- Prototypes -------*/
+//=============================
+//-----------------------------
+/** @brief Initializes the RESET, IRQ and NSS pins. */
+static void mfrc522PortInitialize(void);
+//-----------------------------
+/** @brief Sets the IRQ pin to generate interrupts. */
+static void mfrc522EXTIInitialize(void);
+//-----------------------------
+/** @brief Compares buffer with version.
+ *
+ * @param buffer Buffer containing bytes read from MFRC522 after the self-test.
+ * @param version Buffer containing the expected bytes from a MFRC522  version.
+ *
+ * @return 0 if buffer and version matches, 1 otherwise.
+ */
+uint8_t mfrc522CompareVersion(uint8_t *buffer, uint8_t *version);
+//-----------------------------
+//=============================
+
+//=============================
+/*--------- Globals ---------*/
+//=============================
+SemaphoreHandle_t mfrc522Semaphore;
+
+/* Versions */
+//-----------------------------
 uint8_t mfcr522Version;
 uint8_t mfrc522v1Data[] = {
 		0x00, 0xC6, 0x37, 0xD5, 0x32, 0xB7, 0x57, 0x5C,
@@ -71,30 +121,12 @@ uint8_t mfrc522v2Data[] = {
 		0x9D, 0x3B, 0xA7, 0x00, 0x21, 0x5B, 0x89, 0x82,
 		0x51, 0x3A, 0xEB, 0x02, 0x0C, 0xA5, 0x00, 0x49,
 		0x7C, 0x84, 0x4D, 0xB3, 0xCC, 0xD2, 0x1B, 0x81,
-		0x5D, 0x48, 0x76, 0xD5, 0x71, 0x061, 0x21, 0xA9,
+		0x5D, 0x48, 0x76, 0xD5, 0x71, 0x61, 0x21, 0xA9,
 		0x86, 0x96, 0x83, 0x38, 0xCF, 0x9D, 0x5B, 0x6D,
-		0xDC, 0x15, 0xBA, 0x3E, 0x7D, 0x95, 0x03B, 0x2F
+		0xDC, 0x15, 0xBA, 0x3E, 0x7D, 0x95, 0x3B, 0x2F
 };
-
-
-//=============================
-/*-------- Prototypes -------*/
-//=============================
-//-----------------------------
-static void mfrc522PortInitialize(void);
-//-----------------------------
-static void mfrc522EXTIInitialize(void);
-//-----------------------------
-uint8_t mfrc522CompareVersion(uint8_t *buffer, uint8_t *version);
 //-----------------------------
 //=============================
-
-//=============================
-/*--------- Globals ---------*/
-//=============================
-SemaphoreHandle_t mfrc522Semaphore;
-//=============================
-
 
 //=============================
 /*-------- Functions --------*/
@@ -171,7 +203,7 @@ uint8_t mfrc522ReadRegister(uint8_t reg, uint8_t *buffer){
 	return 0;
 }
 //-----------------------------
-void mfrc522WriteRegister(uint8_t reg, uint8_t data){
+uint8_t mfrc522WriteRegister(uint8_t reg, uint8_t data){
 
 	uint8_t command[2];
 
@@ -183,13 +215,18 @@ void mfrc522WriteRegister(uint8_t reg, uint8_t data){
 
 	/* Sends the command and waits until transmission is over */
 	spiWrite(configMFRC522_SPI, command, 2);
-	spiWaitTX(configMFRC522_SPI, 0xFFFF);
+	if( spiWaitTX(configMFRC522_SPI, 0xFFFF) ) {
+		MFRC522_NSS_SET;
+		return 1;
+	}
 
 	MFRC522_NSS_SET;
 
 	/* Discards the received bytes */
-	spiRead(configMFRC522_SPI, command, 0);
-	spiRead(configMFRC522_SPI, command, 0);
+	if( spiRead(configMFRC522_SPI, command, 0) ) return 1;
+	if( spiRead(configMFRC522_SPI, command, 0) ) return 1;
+
+	return 0;
 }
 //-----------------------------
 void mfrc522SoftReset(void){
@@ -209,6 +246,9 @@ uint8_t mfrc522SelfTest(uint32_t timeout){
 	uint32_t k;
 	uint8_t buffer[64];
 	uint8_t fifoSize;
+
+	/* Initializes version to 0 */
+	mfcr522Version = 0x00;
 
 	k = 0;
 	while(k < 64){
@@ -258,8 +298,8 @@ uint8_t mfrc522SelfTest(uint32_t timeout){
 
 	/* Verifies MFRC522 version */
 	if( !mfrc522CompareVersion(buffer, mfrc522v1Data) ) mfcr522Version = 0x01;
-	else if( !mfrc522CompareVersion(buffer, mfrc522v2Data) ) mfcr522Version = 0x02;
-	else mfcr522Version = 0x00;
+	if( !mfrc522CompareVersion(buffer, mfrc522v2Data) ) mfcr522Version = 0x02;
+
 
 	return 0;
 }
@@ -348,9 +388,8 @@ uint8_t mfrc522CompareVersion(uint8_t *buffer, uint8_t *version){
 	b = buffer;
 	v = version;
 	k = 64;
-	while(k < 64){
-		if( b++ != v++ ) return 1;
-		k++;
+	while(k--){
+		if( *b++ != *v++ ) return 1;
 	}
 
 	return 0;

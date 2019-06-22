@@ -31,14 +31,17 @@
 
 /* SPI */
 //-----------------------------
-#define configMFRC522_SPI			SPI1
-#define configMFRC522_SPI_CLK_DIV	SPI_CLK_DIV_128
+#define configMFRC522_SPI			SPI2
+#define configMFRC522_SPI_CLK_DIV	SPI_CLK_DIV_64
 //-----------------------------
 
 /* GPIO */
 //-----------------------------
 #define configMFRC522_NSS_PORT		GPIOB
 #define configMFRC522_NSS_PIN		GPIO_P1
+
+#define configMFRC522_RESET_PORT	GPIOB
+#define configMFRC522_RESET_PIN		GPIO_P9
 
 /* Do not change this */
 #define configMFRC522_IRQ_PORT		GPIOB
@@ -49,16 +52,27 @@
 //-----------------------------
 /* Registers */
 #define MFRC522_REG_COMMAND		0x01
+#define MFRC522_REG_COMM_IRQ	0x04
+#define MFRC522_REG_ERROR		0x06
 #define MFRC522_REG_STATUS1		0x07
 #define MFRC522_REG_STATUS2		0x08
 #define MFRC522_REG_FIFO_DATA	0x09
 #define MFRC522_REG_FIFO_LEVEL	0x0A
+#define MFRC522_REG_MODE		0x11
+#define MFRC522_REG_TX_ASK		0x15
+#define MFRC522_REG_RFC_FG		0x26
+#define MFRC522_REG_TMODE		0x2A
+#define MFRC522_REG_TPRESCALER	0x2B
+#define MFRC522_REG_TRELOAD_H	0x2C
+#define MFRC522_REG_TRELOAD_L	0x2D
 #define MFRC522_REG_TEST_SEL1	0x31
 #define MFRC522_REG_AUTO_TEST	0x36
 
 /* Commands */
+#define MFRC522_CMD_IDLE		0x00
 #define MFRC522_CMD_MEM			0x01
 #define MFRC522_CMD_CALC_CRC	0x03
+#define MFRC522_CMD_NO_CHANGE	0x07
 #define MFRC522_CMD_SOFT_RESET	0x0F
 //-----------------------------
 //=============================
@@ -106,7 +120,7 @@ void mfrc522SoftReset(void);
  *
  * @return 0 if test passed, 1 otherwise.
  */
-uint8_t mfrc522SelfTest(uint8_t* buffer, uint32_t timeout);
+uint8_t mfrc522SelfTest(uint32_t timeout);
 //-----------------------------
 /** @brief Flushes the MFRC522 FIFO buffer. */
 void mfrc522FIFOFlush(void);
@@ -124,6 +138,14 @@ void mfrc522FIFOWrite(uint8_t* buffer, uint8_t nbytes);
  * @param nbytes Number of bytes to read.
  */
 void mfrc522FIFORead(uint8_t* buffer, uint8_t nbytes);
+//-----------------------------
+/** @brief Gets the FIFO level.
+ *
+ * @return FIFO level.
+ */
+uint8_t mfrc522FIFOLevel(void);
+//-----------------------------
+uint8_t mfrc522GetVersion(void);
 //-----------------------------
 //=============================
 

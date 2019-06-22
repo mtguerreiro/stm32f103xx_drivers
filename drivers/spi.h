@@ -55,8 +55,8 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configSPI1_ENABLED			1
-#define configSPI2_ENABLED			0
+#define configSPI1_ENABLED			0
+#define configSPI2_ENABLED			1
 #define configSPI3_ENABLED			0
 
 /* RX and TX queue size */

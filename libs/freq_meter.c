@@ -10,10 +10,6 @@
 //=============================
 #include "freq_meter.h"
 
-/* Kernel */
-//#include "FreeRTOS.h"
-//#include "semphr.h"
-
 /* Device */
 #include "stm32f10x.h"
 
@@ -37,17 +33,17 @@ uint32_t freq = 0;
 /*-------- Prototypes -------*/
 //=============================
 static void freqMeterInitializePort(void);
-static void freqMeterInitializeTimer(void);
+static void freqMeterInitializeTimer(uint16_t timerPrescaler);
 //=============================
 
 //=============================
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-void freqMeterInitialize(void){
+void freqMeterInitialize(uint16_t timerPrescaler){
 
 	freqMeterInitializePort();
-	freqMeterInitializeTimer();
+	freqMeterInitializeTimer(timerPrescaler);
 }
 //-----------------------------
 void freqMeterStart(void){
@@ -107,7 +103,7 @@ static void freqMeterInitializePort(void){
 	NVIC_EnableIRQ(EXTI3_IRQn);
 }
 //-----------------------------
-static void freqMeterInitializeTimer(void){
+static void freqMeterInitializeTimer(uint16_t timerPrescaler){
 
 	/* Here, timer 2 is enabled */
 
@@ -136,9 +132,9 @@ static void freqMeterInitializeTimer(void){
 	TIM2->DIER = 0;
 
 	/*
-	 * Sets prescaler to 287.
-	 * The TIMER clock will then be:
-	 * f = (36*2 MHz)/(287 + 1) = 250 kHz
+	 * Sets prescaler.
+	 * The TIMER clock will be:
+	 * f = (36*2 MHz)/(prescaler)
 	 *
 	 * The clock is 36*2 due to the APB1 prescaler being 2.
 	 * In this case, the timer clock is 2 times the APB1
@@ -146,7 +142,7 @@ static void freqMeterInitializeTimer(void){
 	 * is different than 1. (See Figure 11 in the RCC section
 	 * of the user guide.)
 	 */
-	TIM2->PSC = 288 - 1;
+	TIM2->PSC = (uint16_t)(timerPrescaler - 1);
 
 	/*
 	 * Sets Auto-Reload Register so the counter will count 65536 times.

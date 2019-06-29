@@ -4,6 +4,8 @@
  *
  * Measures the frequency of a PWM on the selected input pin.
  *
+ * Current version: v0.1.0.
+ *
  *  Created on: Jun 28, 2019
  *      Author: Marco
  */
@@ -36,8 +38,15 @@ typedef void(*freqMeterHook_t)(uint32_t);
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-/** @brief Initializes the input and timer for the frequency meter. */
-void freqMeterInitialize(uint16_t timerPrescaler, freqMeterHook_t);
+/** @brief Initializes the input and timer for the frequency meter.
+ *
+ * @param timerPrescaler Defines the prescaler for TIM2's clock (which is
+ * 	expected to be 72 MHz).
+ * @param hook Function to be called at each new frequency measurement. This
+ * 	function must accept an uint32_t as variable, since the hook is called
+ * 	with the timer's counter value as a 32-bit variable.
+ */
+void freqMeterInitialize(uint16_t timerPrescaler, freqMeterHook_t hook);
 //-----------------------------
 /** @brief Starts the frequency meter. */
 void freqMeterStart(void);

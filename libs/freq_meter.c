@@ -34,8 +34,17 @@ freqMeterHook_t freqHook;
 //=============================
 /*-------- Prototypes -------*/
 //=============================
+//-----------------------------
+/** @brief Sets GPIOB P3 as floating input to generate interrupts. */
 static void freqMeterInitializePort(void);
+//-----------------------------
+/** @brief Initializes the timer to measure the frequency.
+ *
+ * @param timerPrescaler Defines the prescaler for TIM2's clock (which is
+ * 	expected to be 72 MHz).
+ */
 static void freqMeterInitializeTimer(uint16_t timerPrescaler);
+//-----------------------------
 //=============================
 
 //=============================

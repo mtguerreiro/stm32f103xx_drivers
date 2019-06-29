@@ -401,15 +401,15 @@ uint8_t mfrc522CompareVersion(uint8_t *buffer, uint8_t *version){
 /*------- IRQ Handlers ------*/
 //=============================
 //-----------------------------
-void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
-void EXTI3_IRQHandler(void){
-
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-	EXTI->PR |= (1U << 3);
-
-	xSemaphoreGiveFromISR(mfrc522Semaphore, &xHigherPriorityTaskWoken);
-	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-}
+//void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+//void EXTI3_IRQHandler(void){
+//
+//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//
+//	EXTI->PR |= (1U << 3);
+//
+//	xSemaphoreGiveFromISR(mfrc522Semaphore, &xHigherPriorityTaskWoken);
+//	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//}
 //-----------------------------
 //=============================

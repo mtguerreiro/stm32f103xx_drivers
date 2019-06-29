@@ -241,7 +241,7 @@ static uint8_t uartHWInitialize(USART_TypeDef *uart, uint32_t baud){
 	gpioPortEnable(portTX);
 	if(portTX != portRX) gpioPortEnable(portRX);
 	gpioConfig(portTX, portTXPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL);
-	gpioConfig(portRX, portRXPin, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
+	gpioConfig(portRX, portRXPin, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
 
 	/* Sets NVIC priority */
 	NVIC_SetPriority(irqn, 6);

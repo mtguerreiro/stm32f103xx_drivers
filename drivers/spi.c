@@ -210,7 +210,7 @@ static uint8_t spiHWInitialize(SPI_TypeDef *spi, uint16_t clockDiv){
 	/* Sets SPI pins */
 	gpioPortEnable(port);
 	gpioConfig(port, mosi | ck, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSH_PULL);
-	gpioConfig(port, miso, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT_INPUT);
+	gpioConfig(port, miso, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
 
 	/* Sets NVIC priority */
 	NVIC_SetPriority(irqn, 6);

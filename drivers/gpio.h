@@ -1,16 +1,19 @@
 /*
  * gpio.h
  *
- *  Created on: March 10, 2019
- *      Author: Marco
- *
- *	Current version: v0.1.1
+ *	Current version: v0.1.2.
  *
  *	v0.1.0:
  *		- Initial version
  *
  *	-v0.1.1:
  *		- Input can be configured as pull-up or pull-down.
+ *
+ *	-v0.1.2:
+ *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
+ *
+ *  Created on: March 10, 2019
+ *      Author: Marco
  */
 
 #ifndef GPIO_H_
@@ -50,7 +53,7 @@ typedef enum{
 //-----------------------------
 typedef enum{
 	GPIO_CONFIG_INPUT_ANALOG,
-	GPIO_CONFIG_INPUT_FLOAT_INPUT,
+	GPIO_CONFIG_INPUT_FLOAT,
 	GPIO_CONFIG_INPUT_PULL_UP,
 	GPIO_CONFIG_INPUT_PULL_DOWN
 }gpioConfigInput_et;

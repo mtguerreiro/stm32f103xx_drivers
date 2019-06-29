@@ -50,6 +50,31 @@ void freqMeterInitialize(void){
 	freqMeterInitializeTimer();
 }
 //-----------------------------
+void freqMeterStart(void){
+
+	/* To start the freq meter, we just enable input interrupts and the timer */
+
+	/* Clears interrupt request for EXTII */
+	EXTI->PR |= (1U << 3);
+	/* Interrupt for line 3 is not masked */
+	EXTI->IMR |= (1U << 3);
+
+	/* Clears and enables timer counter */
+	TIM2->EGR |= 1;
+	TIM2->CR1 |= (1 << 0);
+}
+//-----------------------------
+void freqMeterStop(void){
+
+	/* To stop the freq meter, we just disable input interrupts and the timer */
+
+	/* Interrupt for line 3 is masked */
+	EXTI->IMR &= ~(1U << 3);
+
+	/* Clears and enables timer counter */
+	TIM2->CR1 &= (uint16_t)(~(1U << 0));
+}
+//-----------------------------
 uint32_t freqMeterGet(void){
 
 	return freq;
@@ -71,7 +96,7 @@ static void freqMeterInitializePort(void){
 	/* Selects GPIOB pin 3 as external source for line 3 */
 	AFIO->EXTICR[0] = (1U << 12);
 	/* Interrupt for line 3 is not masked */
-	EXTI->IMR |= (1U << 3);
+	//EXTI->IMR |= (1U << 3);
 	/* Sets falling edge as trigger for line 2 */
 	EXTI->FTSR |= (1U << 3);
 	/* Clears pending register */
@@ -84,10 +109,10 @@ static void freqMeterInitializePort(void){
 //-----------------------------
 static void freqMeterInitializeTimer(void){
 
-	/* Here, timer 6 is enabled */
+	/* Here, timer 2 is enabled */
 
-	/* Disables TIM6 just in case */
-	TIM6->CR1 = 0;
+	/* Disables TIM2 just in case */
+	TIM2->CR1 = 0;
 
 	/*
 	 * Enables clock to timer.
@@ -103,14 +128,11 @@ static void freqMeterInitializeTimer(void){
 	 * Bit 0 - CEN (Counter enabled): Counter disabled (bit clear)
 	 */
 	TIM2->CR1 = (1 << 2);
-	//TIM2->CR1 = (1 << 3) | (1 << 2);
-	//TIM6->CR1 = (1 << 7) | (1 << 3) | (1 << 2);
 
 	/*
 	 * Bit 8 - UDE (Update DMA enable): Update DMA request disabled (bit clear)
 	 * Bit 0 - UIE (Update interrupt enable): Update interrupt disabled (bit clear)
 	 */
-	//TIM2->DIER = (1 << 0);
 	TIM2->DIER = 0;
 
 	/*
@@ -129,19 +151,13 @@ static void freqMeterInitializeTimer(void){
 	/*
 	 * Sets Auto-Reload Register so the counter will count 65536 times.
 	 * The time until the counter overflows will be:
-	 * t = (65535)/(1000000) = 65.535e-3 s or 65.535 ms
+	 * t = (65536)/(250000) = 0.262144 s or ~3.81 Hz
 	 */
 	TIM2->ARR = 0xFFFF;
 
 	/* Clears and enables timer counter */
 	TIM2->EGR |= 1;
 	TIM2->CR1 |= (1 << 0);
-
-	/* Enables interrupt in the NVIC */
-	//NVIC_SetPriority(TIM2_IRQn, 6);
-	//NVIC_EnableIRQ(TIM2_IRQn);
-	//-------------------
-
 }
 //-----------------------------
 //=============================

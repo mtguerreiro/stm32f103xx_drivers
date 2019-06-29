@@ -20,7 +20,15 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
+/** @brief Function pointer for the frequency meter hook. */
+typedef void(*freqMeterHook_t)(uint32_t);
 
+/** @brief Defines if frequency meter hook should be used.
+ *
+ * The hook is called each time the freqMeter measures a new frequency.
+ * The counter's value is passed to the hook.
+ */
+#define configFREQ_METER_USE_HOOK	1
 //=============================
 
 
@@ -29,7 +37,7 @@
 //=============================
 //-----------------------------
 /** @brief Initializes the input and timer for the frequency meter. */
-void freqMeterInitialize(uint16_t timerPrescaler);
+void freqMeterInitialize(uint16_t timerPrescaler, freqMeterHook_t);
 //-----------------------------
 /** @brief Starts the frequency meter. */
 void freqMeterStart(void);

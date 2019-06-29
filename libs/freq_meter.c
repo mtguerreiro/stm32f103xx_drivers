@@ -27,6 +27,8 @@
 /*--------- Globals ---------*/
 //=============================
 uint32_t freq = 0;
+
+freqMeterHook_t freqHook;
 //=============================
 
 //=============================
@@ -40,10 +42,11 @@ static void freqMeterInitializeTimer(uint16_t timerPrescaler);
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-void freqMeterInitialize(uint16_t timerPrescaler){
+void freqMeterInitialize(uint16_t timerPrescaler, freqMeterHook_t hook){
 
 	freqMeterInitializePort();
 	freqMeterInitializeTimer(timerPrescaler);
+	freqHook = hook;
 }
 //-----------------------------
 void freqMeterStart(void){
@@ -175,7 +178,9 @@ void EXTI3_IRQHandler(void){
 	/* Clears timer value to start counting for the next cycle */
 	TIM2->EGR |= 1;
 
-	gpioOutputToggle(GPIOC, GPIO_P13);
+#if configFREQ_METER_USE_HOOK == 1
+	freqHook(freq);
+#endif
 }
 //-----------------------------
 //=============================

@@ -1,6 +1,8 @@
 /*
  * pulse_counter.h
  *
+ *	Counts the number of falling edges on a selected input.
+ *
  *  Created on: Jul 20, 2019
  *      Author: marco
  */

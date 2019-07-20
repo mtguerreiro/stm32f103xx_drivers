@@ -175,21 +175,21 @@ static void freqMeterInitializeTimer(uint16_t timerPrescaler){
 /*------- IRQ Handlers ------*/
 //=============================
 //-----------------------------
-void EXTI4_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
-void EXTI4_IRQHandler(void){
-
-	/* Clears interrupt request */
-	EXTI->PR |= (1U << 4);
-
-	/* Saves timer value */
-	freq = TIM2->CNT;
-
-	/* Clears timer value to start counting for the next cycle */
-	TIM2->EGR |= 1;
-
-#if configFREQ_METER_USE_HOOK == 1
-	freqHook(freq);
-#endif
-}
+//void EXTI4_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+//void EXTI4_IRQHandler(void){
+//
+//	/* Clears interrupt request */
+//	EXTI->PR |= (1U << 4);
+//
+//	/* Saves timer value */
+//	freq = TIM2->CNT;
+//
+//	/* Clears timer value to start counting for the next cycle */
+//	TIM2->EGR |= 1;
+//
+//#if configFREQ_METER_USE_HOOK == 1
+//	freqHook(freq);
+//#endif
+//}
 //-----------------------------
 //=============================

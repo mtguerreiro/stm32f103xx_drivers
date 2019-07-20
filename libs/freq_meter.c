@@ -35,7 +35,7 @@ freqMeterHook_t freqHook;
 /*-------- Prototypes -------*/
 //=============================
 //-----------------------------
-/** @brief Sets GPIOB P3 as floating input to generate interrupts. */
+/** @brief Sets GPIOB P1 as floating input to generate interrupts. */
 static void freqMeterInitializePort(void);
 //-----------------------------
 /** @brief Initializes the timer to measure the frequency.
@@ -62,10 +62,10 @@ void freqMeterStart(void){
 
 	/* To start the freq meter, we just enable input interrupts and the timer */
 
-	/* Clears interrupt request for EXTII line 4*/
-	EXTI->PR |= (1U << 4);
-	/* Interrupt for line 4 is not masked */
-	EXTI->IMR |= (1U << 4);
+	/* Clears interrupt request for EXTII line 1 */
+	EXTI->PR |= (1U << 1);
+	/* Interrupt for line 1 is not masked */
+	EXTI->IMR |= (1U << 1);
 
 	/* Clears and enables timer counter */
 	TIM2->EGR |= 1;
@@ -76,8 +76,8 @@ void freqMeterStop(void){
 
 	/* To stop the freq meter, we just disable input interrupts and the timer */
 
-	/* Interrupt for line 4 is masked */
-	EXTI->IMR &= ~(1U << 4);
+	/* Interrupt for line 1 is masked */
+	EXTI->IMR &= ~(1U << 1);
 
 	/* Clears and enables timer counter */
 	TIM2->CR1 &= (uint16_t)(~(1U << 0));
@@ -97,22 +97,22 @@ uint32_t freqMeterGet(void){
 //-----------------------------
 static void freqMeterInitializePort(void){
 
-	/* Sets GPIO P4 as floating input */
+	/* Sets GPIO P1 as floating input */
 	gpioPortEnable(GPIOB);
-	gpioConfig(GPIOB, GPIO_P4, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
+	gpioConfig(GPIOB, GPIO_P1, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
 
-	/* Selects GPIOB pin 4 as external source for line 4 */
-	AFIO->EXTICR[1] = (1U << 0);
-	/* Interrupt for line 4 is not masked */
-	//EXTI->IMR |= (1U << 4);
-	/* Sets falling edge as trigger for line 4 */
-	EXTI->FTSR |= (1U << 4);
+	/* Selects GPIOB pin 1 as external source for line 1 */
+	AFIO->EXTICR[0] = (1U << 4);
+	/* Interrupt for line 1 is not masked */
+	//EXTI->IMR |= (1U << 1);
+	/* Sets falling edge as trigger for line 1 */
+	EXTI->FTSR |= (1U << 1);
 	/* Clears pending register */
-	EXTI->PR |= (1U << 4);
+	EXTI->PR |= (1U << 1);
 
 	/* Sets NVIC priority and enables interrupt */
-	NVIC_SetPriority(EXTI4_IRQn, 6);
-	NVIC_EnableIRQ(EXTI4_IRQn);
+	NVIC_SetPriority(EXTI1_IRQn, 6);
+	NVIC_EnableIRQ(EXTI1_IRQn);
 }
 //-----------------------------
 static void freqMeterInitializeTimer(uint16_t timerPrescaler){
@@ -175,21 +175,21 @@ static void freqMeterInitializeTimer(uint16_t timerPrescaler){
 /*------- IRQ Handlers ------*/
 //=============================
 //-----------------------------
-//void EXTI4_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
-//void EXTI4_IRQHandler(void){
-//
-//	/* Clears interrupt request */
-//	EXTI->PR |= (1U << 4);
-//
-//	/* Saves timer value */
-//	freq = TIM2->CNT;
-//
-//	/* Clears timer value to start counting for the next cycle */
-//	TIM2->EGR |= 1;
-//
-//#if configFREQ_METER_USE_HOOK == 1
-//	freqHook(freq);
-//#endif
-//}
+void EXTI1_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+void EXTI1_IRQHandler(void){
+
+	/* Clears interrupt request */
+	EXTI->PR |= (1U << 1);
+
+	/* Saves timer value */
+	freq = TIM2->CNT;
+
+	/* Clears timer value to start counting for the next cycle */
+	TIM2->EGR |= 1;
+
+#if configFREQ_METER_USE_HOOK == 1
+	freqHook(freq);
+#endif
+}
 //-----------------------------
 //=============================

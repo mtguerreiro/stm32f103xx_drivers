@@ -387,8 +387,14 @@ uint8_t nrf24l01TXPower(uint8_t power);
 //-----------------------------
 
 /* Direct comm */
+/*
+ * These functions give direct access to the NRF's register.
+ */
+//-----------------------------
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
+//-----------------------------
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
+//-----------------------------
 
 /* Status */
 uint8_t nrf24l01ReadSR(uint8_t *status);

@@ -921,15 +921,15 @@ static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 /*------- IRQ Handlers ------*/
 //=============================
 //-----------------------------
-void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
-void EXTI3_IRQHandler(void){
-
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-	EXTI->PR |= (1U << 3);
-
-	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
-	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-}
+//void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+//void EXTI3_IRQHandler(void){
+//
+//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//
+//	EXTI->PR |= (1U << 3);
+//
+//	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
+//	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//}
 //-----------------------------
 //=============================

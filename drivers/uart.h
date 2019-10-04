@@ -1,15 +1,15 @@
 /*
  * uart.h
  *
- *  Created on: March 10, 2019
- *      Author: Marco
- *
  *	UART driver for STM32F103xx devices.
  *
- *	Current version: 0.1
+ *	Current version: v0.1.1.
  *
- *	- v0.1:
- *		- Overall improvements in code
+ *	- v0.1.0:
+ *		- Overall improvements in code.
+ *	- v0.1.1:
+ *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
+ *
  *
  *	Melhorias
  *		- Baudrate configurável
@@ -18,6 +18,9 @@
  *		- "Yield from interrupt" individual
  *		- Pensar em solução para o problema ao tentar enviar uma quantidade
  *		de bytes maior do que o espaço disponível na fila
+ *
+ *  Created on: March 10, 2019
+ *      Author: Marco
  */
 
 #ifndef UART_H_

@@ -20,7 +20,7 @@
  * indefinitely for a byte to arrive, if necessary (although the module only
  * works in master mode).
  *
- * Current version: 0.1.1
+ * Current version: v0.1.2.
  *
  * -v0.1.0:
  *  - Adapted to new model
@@ -29,6 +29,9 @@
  *  - General improvements
  *  - Sets SSI and SSM bits during initialization
  *  - Initial documentation
+ *
+ * -v0.1.2:
+ * 	- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
  *
  *	Melhorias
  *		- Melhorar uso das filas (criar somente a quantidade
@@ -55,8 +58,8 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configSPI1_ENABLED			1
-#define configSPI2_ENABLED			0
+#define configSPI1_ENABLED			0
+#define configSPI2_ENABLED			1
 #define configSPI3_ENABLED			0
 
 /* RX and TX queue size */

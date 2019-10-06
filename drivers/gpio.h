@@ -38,6 +38,7 @@ void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputSet(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputReset(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins);
+uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins);
 //=============================
 
 //=============================

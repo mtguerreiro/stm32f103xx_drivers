@@ -885,14 +885,18 @@ static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 
     uint8_t *rxBuffer;
-    uint8_t txBuffer[6] = {0x00};
+    uint8_t txBuffer[2] = {0x00};
     uint8_t k;
 
     configNRF24L01_CSN_RESET;
 
     txBuffer[0] = 0x61;
 
-    spiWrite(SPI1, txBuffer, sizeof(txBuffer));
+    /* First, writes the read RX payload command */
+    spiWrite(SPI1, &txBuffer[0], 1);
+    /* Now, sends 0x00 to provide clock to read the payload from the module */
+    k = size;
+    while(k--) spiWrite(SPI1, &txBuffer[1], 1);
     spiWaitTX(SPI1, 0xFFFF);
 
     configNRF24L01_CSN_SET;

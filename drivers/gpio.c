@@ -78,6 +78,13 @@ void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins){
 	port->ODR = (uint32_t)pins;
 }
 //-----------------------------
+uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins){
+
+    /* Obs.: only works if the output is in push-pull mode */
+
+    return (uint16_t)(port->ODR & pins);
+}
+//-----------------------------
 //=============================
 
 //=============================

@@ -126,7 +126,7 @@ uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes){
 
 	id = serial->id;
 	/* Checks if ID is valid */
-	if( id == serialControl.n ){
+	if( serialFindID(id) == serialControl.n ){
 		return 1;
 	}
 
@@ -156,7 +156,7 @@ uint8_t serialSendString(serial_t *serial, void *string){
 
 	id = serial->id;
 	/* Checks if ID is valid */
-	if( id == serialControl.n ){
+	if( serialFindID(id) == serialControl.n ){
 		return 1;
 	}
 

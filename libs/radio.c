@@ -78,4 +78,18 @@ uint8_t radioRead(uint8_t *buffer, uint32_t ticks){
     return 0;
 }
 //-----------------------------
+uint8_t radioSetTX(void){
+
+    if( nrf24l01SetPTX() ) return 1;
+
+    return 0;
+}
+//-----------------------------
+uint8_t radioSetRX(void){
+
+    if( nrf24l01SetPRX() ) return 1;
+
+    return 0;
+}
+//-----------------------------
 //=============================

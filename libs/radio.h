@@ -62,6 +62,10 @@ uint8_t radioWrite(uint8_t *data);
  */
 uint8_t radioRead(uint8_t *buffer, uint32_t ticks);
 //-----------------------------
+uint8_t radioSetTX(void);
+//-----------------------------
+uint8_t radioSetRX(void);
+//-----------------------------
 //=============================
 
 #endif /* RADIO_H_ */

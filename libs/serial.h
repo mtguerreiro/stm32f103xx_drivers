@@ -46,6 +46,7 @@ typedef void(*serialHandler_t)(void);
 /*--------- Defines ---------*/
 //=============================
 #define configSERIAL_MAX_IDS			10
+//#define configSERIAL_MAX_SER			2
 
 #define configSERIAL_START_MAX_DELAY	2000
 #define configSERIAL_ID_MAX_DELAY		100
@@ -59,24 +60,24 @@ typedef void(*serialHandler_t)(void);
 //=============================
 //-----------------------------
 typedef void(*serialHandler_t)(void);
-typedef struct{
-	uint32_t id;
-	serialHandler_t handler;
-	uint8_t *buffer;
-	uint32_t dataSize;
-	uint8_t dataAvailable;
-}serial_t;
+//typedef struct{
+//	uint32_t id[configSERIAL_MAX_IDS];
+//	serialHandler_t handler[configSERIAL_MAX_IDS];
+//	uint8_t *buffer;
+//	uint32_t dataSize;
+//	uint8_t dataAvailable;
+//}serial_t;
 //-----------------------------
 //=============================
 
 //=============================
 /*-------- Functions --------*/
 //=============================
-void serialInitialize(USART_TypeDef *uart, uint32_t baud);
+void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer);
 uint8_t serialRun(void);
-uint8_t serialInstallID(serial_t *serial, uint32_t id, uint8_t *buffer, serialHandler_t handler);
-uint8_t serialSend(serial_t *serial, uint8_t *buffer, uint32_t nbytes);
-uint8_t serialSendString(serial_t *serial, void *buffer);
+uint8_t serialInstallID(uint32_t id, serialHandler_t handler);
+uint8_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
+uint8_t serialSendString(uint32_t id, void *string);
 uint8_t serialSendStringRaw(void *string);
 //=============================
 

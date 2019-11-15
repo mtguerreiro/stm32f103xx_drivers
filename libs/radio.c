@@ -54,13 +54,24 @@ uint8_t radioInitialize(void){
 //-----------------------------
 uint8_t radioWrite(uint8_t *data){
 
+    uint8_t status;
+
     /* Switches to TX */
-    nrf24l01SetPTX();
+    status = radioSetTX();
+    if( status ){
+        return status;
+    }
 
     /* Sends data */
-    if( nrf24l01Write(data, configRADIO_PAYLOAD_SIZE, 100) ){
+    status = nrf24l01Write(data, configRADIO_PAYLOAD_SIZE, 100);
+    if( status ){
+        uint8_t ret;
+        if( status == 1 ) ret = configRADIO_ERROR_PEND;
+        else if( status == 2 ) ret = configRADIO_ERROR_SPI_COMM;
+        else if( status == 3 ) ret = configRADIO_ERROR_MAX_RETRIES;
+        else ret = 0xFF;
         nrf24l01SetPRX();
-        return 1;
+        return ret;
     }
 
     /* Switches back to RX */
@@ -71,23 +82,49 @@ uint8_t radioWrite(uint8_t *data){
 //-----------------------------
 uint8_t radioRead(uint8_t *buffer, uint32_t ticks){
 
+    uint8_t status;
+
     /* Assures radio is in RX mode and waits for a packet */
-    nrf24l01SetPRX();
-    if( nrf24l01Read(buffer, configRADIO_PAYLOAD_SIZE, ticks) ) return 1;
+    status = radioSetRX();
+    if( status ){
+        return status;
+    }
+
+    if( nrf24l01Read(buffer, configRADIO_PAYLOAD_SIZE, ticks) ) {
+        return configRADIO_ERROR_READ_TO;
+    }
 
     return 0;
 }
 //-----------------------------
 uint8_t radioSetTX(void){
 
-    if( nrf24l01SetPTX() ) return 1;
+    uint8_t status;
+
+    status = nrf24l01SetPTX();
+    if( status ){
+        uint8_t ret;
+        if( status == 1 ) ret = configRADIO_ERROR_SPI_COMM;
+        else if( status == 2 ) ret = configRADIO_ERROR_WRITE_REG;
+        else ret = 0xFF;
+        return ret;
+    }
 
     return 0;
 }
 //-----------------------------
 uint8_t radioSetRX(void){
 
-    if( nrf24l01SetPRX() ) return 1;
+    uint8_t status;
+
+    status = nrf24l01SetPRX();
+    if( status ) {
+        uint8_t ret;
+        if( status == 1 ) ret = configRADIO_ERROR_SPI_COMM;
+        else if( status == 2 ) ret = configRADIO_ERROR_WRITE_REG;
+        else ret = 0xFF;
+        return ret;
+    }
 
     return 0;
 }

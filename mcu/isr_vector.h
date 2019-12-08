@@ -352,7 +352,6 @@ void __attribute__ ((section(".boot"), noreturn)) Reset_Handler(void)
 //    }
 
     startup();
-    main();
     while(1);
 }
 

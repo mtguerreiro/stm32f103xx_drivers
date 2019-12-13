@@ -84,6 +84,7 @@ SECTIONS
         PROVIDE_HIDDEN (__fini_array_end = .);
     } > FLASH
     
+    _data_addr = LOADADDR(.data);
     .data :
     {
         . = ALIGN(4);

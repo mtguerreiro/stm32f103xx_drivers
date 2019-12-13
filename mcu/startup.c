@@ -8,15 +8,21 @@
 #include "startup.h"
 #include "stm32f10x.h"
 
+/* Main */
 extern void main(void);
 
+/* .data and .bss segments */
+extern uint32_t _sdata, _edata, _data_addr;//,_sbss, _ebss;
+
 void startupHW(void);
-//void startMemCopy(uint8_t *src, uint8_t *dest, uint32_t size);
-//void startMemSet(uint8_t *src, uint8_t val, uint32_t size);
+void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
+//void startMemSet(uint8_t *dst, uint8_t val, uint32_t size);
 
 void startup(void){
 
     startupHW();
+
+    startMemCopy((uint32_t *)&_sdata, (uint32_t *)&_data_addr, &_edata - &_sdata);
 
     main();
 }
@@ -75,4 +81,18 @@ void startupHW(void){
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     while((RCC->CFGR & RCC_CFGR_SWS_PLL) != 0x08U);
 
+}
+
+void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size){
+
+    while(size--){
+        *dst++ = *src++;
+    }
+}
+
+void startMemSet(uint8_t *dst, uint8_t val, uint32_t size){
+
+    while(size--){
+        *dst++ = val;
+    }
 }

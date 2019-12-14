@@ -7,6 +7,7 @@
 
 #include "startup.h"
 #include "stm32f10x.h"
+#include "isr_vector.h"
 
 /* Main */
 extern void main(void);

@@ -1,3 +1,4 @@
+/* Attention: Heap is not considered here */
 MEMORY
 {
     FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 128K
@@ -6,11 +7,6 @@ MEMORY
 
 /* Stack pointer */
 __stack = ORIGIN(RAM) + LENGTH(RAM);
-_estack = __stack;
-
-/* Generate a link error if heap and stack don't fit into RAM */
-_Min_Heap_Size = 0x200;  /* Required amount of heap  */
-_Min_Stack_Size = 0x400; /* Required amount of stack */
 
 SECTIONS
 {
@@ -40,7 +36,6 @@ SECTIONS
         *(.glue_7)
         *(.glue_7t)
         . = ALIGN(4);
-        _etext = .;
     } > FLASH
 
     .rodata :
@@ -84,40 +79,27 @@ SECTIONS
         PROVIDE_HIDDEN (__fini_array_end = .);
     } > FLASH
     
-    _data_addr = LOADADDR(.data);
+    __sdata_flash = LOADADDR(.data);
     .data :
     {
         . = ALIGN(4);
-        _sdata = .;
+        __sdata_ram = .;
         *(.data)
         *(.data*)
         . = ALIGN(4);
-        _edata = .;
+        __edata_ram = .;
     } > RAM AT > FLASH
     
     .bss : 
     {
         . = ALIGN(4);
-        _sbss = .;
-        __bss_start__ = _sbss;
+        __sbss = .;
         *(.bss)
         *(.bss*)
         *(COMMON)
         . = ALIGN(4);
-        _ebss = .;
-        __bss_end__ = _ebss;
+        __ebss = .;
     } > RAM
-    
-    ._user_heap_stack :
-    {
-        . = ALIGN(4);
-        PROVIDE ( end = . );
-        PROVIDE ( _end = . );
-        PROVIDE ( __end__ = . );
-        . = . + _Min_Heap_Size;
-        . = . + _Min_Stack_Size;
-        . = ALIGN(4);
-    } > RAM     
     
     .ARM.attributes 0 : { *(.ARM.attributes) }   
 }

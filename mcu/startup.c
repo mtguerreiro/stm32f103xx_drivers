@@ -13,8 +13,8 @@
 extern void main(void);
 
 /* .data and .bss segments */
-extern uint32_t _sdata, _edata, _data_addr;//,_sbss, _ebss;
-extern uint32_t _sbss, _ebss;
+extern uint32_t __sdata_ram, __edata_ram, __sdata_flash;
+extern uint32_t __sbss, __ebss;
 
 void startupHW(void);
 void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
@@ -24,8 +24,8 @@ void startup(void){
 
     startupHW();
 
-    startMemCopy((uint32_t *)&_sdata, (uint32_t *)&_data_addr, &_edata - &_sdata);
-    startMemSet((uint32_t *)&_sbss, 0x00, &_ebss - &_sbss);
+    startMemCopy((uint32_t *)&__sdata_ram, (uint32_t *)&__sdata_flash, &__edata_ram - &__sdata_ram);
+    startMemSet((uint32_t *)&__sbss, 0x00, &__ebss - &__sbss);
 
     main();
 }

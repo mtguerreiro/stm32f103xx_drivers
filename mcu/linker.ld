@@ -13,6 +13,7 @@ SECTIONS
 
     . = ORIGIN(FLASH);
     
+    /* ISR vector table */
     .isr_vector :
     {
         . = ALIGN(4);
@@ -20,6 +21,7 @@ SECTIONS
         . = ALIGN(4);
     } > FLASH
     
+    /* Boot space */
     .boot :
     {
         . = ALIGN(4);
@@ -28,6 +30,7 @@ SECTIONS
         . = ALIGN(4);  
     } > FLASH
     
+    /* Code */
     .text :
     {
         . = ALIGN(4);
@@ -38,6 +41,7 @@ SECTIONS
         . = ALIGN(4);
     } > FLASH
 
+	/* Read-only data */
     .rodata :
     {
         . = ALIGN(4);
@@ -46,39 +50,23 @@ SECTIONS
         . = ALIGN(4);
     } > FLASH
     
+    /* ARM stack unwinding. For more, see below. */
+    /* http://infocenter.arm.com/help/topic/com.arm.doc.ihi0044e/index.html */
     .ARM.extab :
     {
         *(.ARM.extab* .gnu.linkonce.armextab.*)
     } > FLASH
-    
     .ARM.exidx :
     {
         __exidx_start = .;
         *(.ARM.exidx* .gnu.linkonce.armexidx.*)
         __exidx_end = .;
     } > FLASH   
-
-    .preinit_array :
-    {
-        PROVIDE_HIDDEN (__preinit_array_start = .);
-        KEEP (*(.preinit_array*))
-        PROVIDE_HIDDEN (__preinit_array_end = .);
-    } > FLASH
-    .init_array :
-    {
-        PROVIDE_HIDDEN (__init_array_start = .);
-        KEEP (*(SORT(.init_array.*)))
-        KEEP (*(.init_array*))
-        PROVIDE_HIDDEN (__init_array_end = .);
-    } > FLASH
-    .fini_array :
-    {
-        PROVIDE_HIDDEN (__fini_array_start = .);
-        KEEP (*(SORT(.fini_array.*)))
-        KEEP (*(.fini_array*))
-        PROVIDE_HIDDEN (__fini_array_end = .);
-    } > FLASH
     
+    /* Initialized variables. Here, __sdata_flash points to the start of the */
+    /* .data section in the flash memory, and __sdata_ram points to where */
+    /* the .data section starts in the RAM memory. In addition, __eedata_ram  */
+    /* points to where the .data section ends in the RAM memory. */
     __sdata_flash = LOADADDR(.data);
     .data :
     {
@@ -90,6 +78,9 @@ SECTIONS
         __edata_ram = .;
     } > RAM AT > FLASH
     
+    /* Unitialized variables. Here, __sbss points to where the .bss section */
+    /* begins in the RAM memory, while __ebss points to where the .bss */
+    /* section ends. */
     .bss : 
     {
         . = ALIGN(4);

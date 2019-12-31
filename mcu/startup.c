@@ -5,31 +5,97 @@
  *      Author: marco
  */
 
+//=============================
+/*--------- Includes --------*/
+//=============================
 #include "startup.h"
-#include "stm32f10x.h"
-#include "isr_vector.h"
 
+/* Device */
+#include "stm32f10x.h"
+
+/* Vector table */
+#include "isr_vector.h"
+//=============================
+
+//=============================
+/*---------- Extern ---------*/
+//=============================
 /* Main */
 extern void main(void);
 
 /* .data and .bss segments */
 extern uint32_t __sdata_ram, __edata_ram, __sdata_flash;
 extern uint32_t __sbss, __ebss;
+//=============================
 
+//=============================
+/*-------- Prototypes -------*/
+//=============================
+//-----------------------------
+/** @brief Sets hardware.
+ *
+ * Here, the system clock and flash wait-states are set.
+ *
+ * The system clock is set as PLL / 2. The PLL clock is set to run from an
+ * HSE crystal of 8 MHz, with a 9x multiplier. The clocks are set as  follows
+ * 	- AHB: 72 MHz
+ * 	- APB1: 36 MHz
+ * 	- APB2: 72 MHz
+ * 	- ADC: 14 MHz
+ *
+ * The flash wait-states is set to 2.
+ */
 void startupHW(void);
+//-----------------------------
+/**
+ * @brief Copies from source to destiny.
+ *
+ * The pointer type is uint32_t (word), so 4 bytes are copied at time. The
+ * pointers are incremented and their initial values are lost.
+ *
+ * @param dst Pointer to destiny.
+ * @param src Pointer to source.
+ * @param size Number of words to copy.
+ */
 void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
+//-----------------------------
+/**
+ * @brief Sets the destiny with a single value.
+ *
+ * The pointer is uin32_t (word), so 4 bytes are set at the same time. The
+ * pointer is incremented and its initial value is lost
+ *
+ * @param dst Pointer to destiny.
+ * @param val Value to set destiny.
+ * @param size Number of words to set with the same value.
+ */
 void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
+//-----------------------------
+//=============================
 
+//=============================
+/*-------- Functions --------*/
+//=============================
+//-----------------------------
 void startup(void){
 
+	/* Sets hardware */
     startupHW();
 
+    /* Initializes RAM memory */
     startMemCopy((uint32_t *)&__sdata_ram, (uint32_t *)&__sdata_flash, (uint32_t)(&__edata_ram - &__sdata_ram));
     startMemSet((uint32_t *)&__sbss, 0x00, (uint32_t)(&__ebss - &__sbss));
 
+    /* Jumps to main */
     main();
 }
+//-----------------------------
+//=============================
 
+//=============================
+/*----- Static functions ----*/
+//=============================
+//-----------------------------
 void startupHW(void){
 
     /*
@@ -85,17 +151,19 @@ void startupHW(void){
     while((RCC->CFGR & RCC_CFGR_SWS_PLL) != 0x08U);
 
 }
-
+//-----------------------------
 void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size){
 
     while(size--){
         *dst++ = *src++;
     }
 }
-
+//-----------------------------
 void startMemSet(uint32_t *dst, uint32_t val, uint32_t size){
 
     while(size--){
         *dst++ = val;
     }
 }
+//-----------------------------
+//=============================

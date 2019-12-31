@@ -82,7 +82,7 @@ void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
 //-----------------------------
 //=============================
 
-#define configSTARTUP_CLK_TIMEOUT	0xFFFFFF
+#define configSTARTUP_CLK_TIMEOUT	0x1FFFFF
 
 //=============================
 /*-------- Functions --------*/
@@ -163,7 +163,7 @@ uint32_t startupClockHSE(void){
 
     /* Turns PLL on and waits until it is stable */
     k = configSTARTUP_CLK_TIMEOUT;
-    RCC->CR |= RCC_CR_PLLON;
+    //RCC->CR |= RCC_CR_PLLON;
     while(!(RCC->CR & RCC_CR_PLLRDY) && --k);
     if(k == 0){
     	/* If timed out, turns HSE and PLL off */
@@ -190,7 +190,7 @@ uint32_t startupClockHSE(void){
     	FLASH->ACR &= (uint32_t)(~2U);
     	RCC->CR &= (uint32_t)(~(RCC_CR_HSEON | RCC_CR_PLLON));
     	RCC->CFGR = 0;
-    	return 3;
+    	return 3U;
     }
 
 	return 0;

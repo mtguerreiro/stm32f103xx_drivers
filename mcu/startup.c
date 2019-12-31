@@ -34,18 +34,27 @@ extern uint32_t __sbss, __ebss;
 //-----------------------------
 /** @brief Sets hardware.
  *
- * Here, the system clock and flash wait-states are set.
+ * Here, the system clock, flash wait-states and JTAG pins are set.
  *
  * The system clock is set as PLL / 2. The PLL clock is set to run from an
- * HSE crystal of 8 MHz, with a 9x multiplier. The clocks are set as  follows
+ * HSE crystal of 8 MHz, with a 9x multiplier. The clocks are set as follows
  * 	- AHB: 72 MHz
  * 	- APB1: 36 MHz
  * 	- APB2: 72 MHz
  * 	- ADC: 14 MHz
+ * 	and the flash wait-states is set to 2.
  *
- * The flash wait-states is set to 2.
+ * 	If initialization of either the HSE or PLL fails, the clock falls back to
+ * 	the default state, which is HSI @ 8 MHz. In this case, the AHB, APB1 and
+ * 	APB2 clocks are set to 8 MHz, while the ADC clock is set to 4 MHz.
+ *
+ * 	In addition, the JTAG pins are freed for used (PB3, PB4 and PA15).
  */
 void startupHW(void);
+//-----------------------------
+uint32_t startupClockHSE(void);
+//-----------------------------
+void startupDisableJTAG(void);
 //-----------------------------
 /**
  * @brief Copies from source to destiny.
@@ -73,6 +82,8 @@ void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
 //-----------------------------
 //=============================
 
+#define configSTARTUP_CLK_TIMEOUT	0xFFFFFF
+
 //=============================
 /*-------- Functions --------*/
 //=============================
@@ -98,8 +109,16 @@ void startup(void){
 //-----------------------------
 void startupHW(void){
 
+	startupClockHSE();
+
+	startupDisableJTAG();
+}
+//-----------------------------
+uint32_t startupClockHSE(void){
+
+	uint32_t k;
     /*
-     * Here, we set the system clock to 72 MHz.
+     * Here, we attempt to set the system clock to 72 MHz.
      *
      * We consider that an 8 MHz ressonator is connected to the HSE pins.
      * This 8 MHz clock is fed to the PLL, which is set to multiply its
@@ -121,15 +140,15 @@ void startupHW(void){
      * than 48 MHz (and up to 72 MHz), flash wait states should be set to 2.
      */
 
-    /* Enables prefetch buffer (should be enabled on reset) */
-    FLASH->ACR |= (1U << 4);
-
-    /* Sets wait states to two (since the system clock will be > 48 MHz) */
-    FLASH->ACR |= 2U;
-
     /* Turns HSE on and waits until it is stable */
+	k = configSTARTUP_CLK_TIMEOUT;
     RCC->CR |= RCC_CR_HSEON;
-    while(!(RCC->CR & RCC_CR_HSERDY));
+    while(!(RCC->CR & RCC_CR_HSERDY) && --k);
+    if(k == 0) {
+    	/* If timed out, turns HSE off */
+    	RCC->CR &= (uint32_t)(~RCC_CR_HSEON);
+    	return 1U;
+    }
 
     /*
      * Now, sets the RCC config register.
@@ -143,13 +162,45 @@ void startupHW(void){
     RCC->CFGR |= (RCC_CFGR_PLLMULL9 | RCC_CFGR_PLLSRC_HSE | RCC_CFGR_ADCPRE_DIV6 | RCC_CFGR_PPRE1_DIV2);
 
     /* Turns PLL on and waits until it is stable */
+    k = configSTARTUP_CLK_TIMEOUT;
     RCC->CR |= RCC_CR_PLLON;
-    while(!(RCC->CR & RCC_CR_PLLRDY));
+    while(!(RCC->CR & RCC_CR_PLLRDY) && --k);
+    if(k == 0){
+    	/* If timed out, turns HSE and PLL off */
+    	RCC->CR &= (uint32_t)(~(RCC_CR_HSEON | RCC_CR_PLLON));
+    	return 2U;
+    }
+
+    /* Enables prefetch buffer (should be enabled on reset) */
+    FLASH->ACR |= (1U << 4);
+
+    /* Sets wait states to two (since the system clock will be > 48 MHz) */
+    FLASH->ACR |= 2U;
 
     /* Sets system clock as PLL's output and waits until it is set */
+    k = configSTARTUP_CLK_TIMEOUT;
     RCC->CFGR |= RCC_CFGR_SW_PLL;
-    while((RCC->CFGR & RCC_CFGR_SWS_PLL) != 0x08U);
+    while(((RCC->CFGR & RCC_CFGR_SWS_PLL) != 0x08U) && --k);
+    if(k == 0){
+    	/*
+    	 * If timed out, turns HSE and PLL off, sets wait-states back to its
+    	 * reset value and clears the RCC configuration register (CFGR).
+    	 * By default, the system clock should already be HSI @ 8 MHz.
+    	 */
+    	FLASH->ACR &= (uint32_t)(~2U);
+    	RCC->CR &= (uint32_t)(~(RCC_CR_HSEON | RCC_CR_PLLON));
+    	RCC->CFGR = 0;
+    	return 3;
+    }
 
+	return 0;
+}
+//-----------------------------
+void startupDisableJTAG(void){
+
+	/* Disable JTAG to free pins PB_3, PB_4 and PA_15 */
+	RCC->APB2ENR |= 1;
+	AFIO->MAPR = (0x02 << 24);
 }
 //-----------------------------
 void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size){

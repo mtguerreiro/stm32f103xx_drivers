@@ -24,8 +24,8 @@ void startup(void){
 
     startupHW();
 
-    startMemCopy((uint32_t *)&__sdata_ram, (uint32_t *)&__sdata_flash, &__edata_ram - &__sdata_ram);
-    startMemSet((uint32_t *)&__sbss, 0x00, &__ebss - &__sbss);
+    startMemCopy((uint32_t *)&__sdata_ram, (uint32_t *)&__sdata_flash, (uint32_t)(&__edata_ram - &__sdata_ram));
+    startMemSet((uint32_t *)&__sbss, 0x00, (uint32_t)(&__ebss - &__sbss));
 
     main();
 }

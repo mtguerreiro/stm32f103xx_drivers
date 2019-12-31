@@ -65,7 +65,7 @@ SECTIONS
     
     /* Initialized variables. Here, __sdata_flash points to the start of the */
     /* .data section in the flash memory, and __sdata_ram points to where */
-    /* the .data section starts in the RAM memory. In addition, __eedata_ram  */
+    /* the .data section starts in the RAM memory. In addition, __eedata_ram */
     /* points to where the .data section ends in the RAM memory. */
     __sdata_flash = LOADADDR(.data);
     .data :

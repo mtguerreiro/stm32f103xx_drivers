@@ -9,14 +9,14 @@
     .eabi_attribute 34, 1
     .eabi_attribute 18, 4
     .align  1
-    .global delaysCycles
+    .global delaysSub
     .arch armv7-m
     .syntax unified
     .thumb
     .thumb_func
     .fpu softvfp
-delaysCycles:
+delaysSub:
     sub r0, #1
     cmp r0, #0
-    bne delaysCycles
+    bne delaysSub
     bx  lr

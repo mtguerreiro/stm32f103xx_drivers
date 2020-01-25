@@ -9,6 +9,7 @@
 /*--------- Includes --------*/
 //=============================
 #include "startup.h"
+#include "boot.h"
 
 /* Device */
 #include "stm32f10x.h"
@@ -78,6 +79,8 @@ void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
 //=============================
 //-----------------------------
 void startup(void){
+
+    boot();
 
 	/* Sets hardware */
     startupHW();

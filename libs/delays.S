@@ -16,7 +16,6 @@
     .thumb_func
     .fpu softvfp
 delaysSub:
-    sub r0, #1
-    cmp r0, #0
+    subs r0, #1
     bne delaysSub
     bx  lr

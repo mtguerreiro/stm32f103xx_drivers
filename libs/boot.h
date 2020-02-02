@@ -8,8 +8,10 @@
 #ifndef BOOT_H_
 #define BOOT_H_
 
-void boot(void);
-
-
+//=============================
+/*-------- Functions --------*/
+//=============================
+void __attribute__ ((section(".boot"))) boot(void);
+//=============================
 
 #endif /* BOOT_H_ */

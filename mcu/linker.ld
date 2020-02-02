@@ -1,7 +1,8 @@
 /* Attention: Heap is not considered here */
 MEMORY
 {
-    FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 128K
+    BOOT (rx) : ORIGIN = 0x08000000, LENGTH = 5K
+    FLASH (rx) : ORIGIN = 0x08000000 + 5K, LENGTH = 120K
     RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 20K
 }
 
@@ -11,7 +12,7 @@ __stack = ORIGIN(RAM) + LENGTH(RAM);
 SECTIONS
 {
 
-    . = ORIGIN(FLASH);
+    . = ORIGIN(BOOT);
     
     /* ISR vector table */
     .isr_vector :
@@ -19,7 +20,7 @@ SECTIONS
         . = ALIGN(4);
         KEEP(*(.isr_vector))
         . = ALIGN(4);
-    } > FLASH
+    } > BOOT
     
     /* Boot space */
     .boot :
@@ -28,9 +29,12 @@ SECTIONS
         KEEP(*(.boot))
         KEEP(*(.boot*))
         . = ALIGN(4);  
-    } > FLASH
+    } > BOOT
+    
+    . = ORIGIN(FLASH);
     
     /* Code */
+    __stext_flash = LOADADDR(.text);
     .text :
     {
         . = ALIGN(4);
@@ -39,6 +43,7 @@ SECTIONS
         *(.glue_7)
         *(.glue_7t)
         . = ALIGN(4);
+        __etext_flash = .;
     } > FLASH
 
 	/* Read-only data */

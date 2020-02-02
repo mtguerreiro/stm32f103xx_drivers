@@ -19,7 +19,7 @@
 //=============================
 /*-------- Functions --------*/
 //=============================
-void startup(void);
+void __attribute__ ((section(".boot"))) startup(void);
 //=============================
 
 #endif /* STARTUP_H_ */

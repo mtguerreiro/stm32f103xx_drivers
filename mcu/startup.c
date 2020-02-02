@@ -46,7 +46,7 @@ extern uint32_t __sbss, __ebss;
  *
  * The flash wait-states is set to 2.
  */
-void startupHW(void);
+void __attribute__ ((section(".boot"))) startupHW(void);
 //-----------------------------
 /**
  * @brief Copies from source to destiny.
@@ -58,7 +58,7 @@ void startupHW(void);
  * @param src Pointer to source.
  * @param size Number of words to copy.
  */
-void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
+void __attribute__ ((section(".boot"))) startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
 //-----------------------------
 /**
  * @brief Sets the destiny with a single value.
@@ -70,7 +70,7 @@ void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size);
  * @param val Value to set destiny.
  * @param size Number of words to set with the same value.
  */
-void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
+void __attribute__ ((section(".boot"))) startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
 //-----------------------------
 //=============================
 
@@ -78,7 +78,7 @@ void startMemSet(uint32_t *dst, uint32_t val, uint32_t size);
 /*-------- Functions --------*/
 //=============================
 //-----------------------------
-void startup(void){
+void __attribute__ ((section(".boot"))) startup(void){
 
     boot();
 
@@ -99,7 +99,7 @@ void startup(void){
 /*----- Static functions ----*/
 //=============================
 //-----------------------------
-void startupHW(void){
+void __attribute__ ((section(".boot"))) startupHW(void){
 
     /*
      * Here, we set the system clock to 72 MHz.
@@ -155,14 +155,14 @@ void startupHW(void){
 
 }
 //-----------------------------
-void startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size){
+void __attribute__ ((section(".boot"))) startMemCopy(uint32_t *dst, uint32_t *src, uint32_t size){
 
     while(size--){
         *dst++ = *src++;
     }
 }
 //-----------------------------
-void startMemSet(uint32_t *dst, uint32_t val, uint32_t size){
+void __attribute__ ((section(".boot"))) startMemSet(uint32_t *dst, uint32_t val, uint32_t size){
 
     while(size--){
         *dst++ = val;

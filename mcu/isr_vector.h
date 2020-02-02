@@ -13,10 +13,10 @@
 
 extern void main (void);
 
-// Default interrupt handler
+/* Default interrupt handler */
 void __attribute__ ((section(".boot"), noreturn)) __Default_Handler(void);
 
-// Reset handler
+/* Reset handler */
 void __attribute__ ((section(".boot"), noreturn)) Reset_Handler (void);
 
 /** Non-maskable interrupt (RCC clock security system) */
@@ -326,31 +326,13 @@ __attribute__ ((section(".isr_vector"), used)) pHandler isr_vector[] =
 /** Default exception/interrupt handler */
 void __attribute__ ((section(".boot"), noreturn)) __Default_Handler(void)
 {
-
-#ifdef DEBUG
-  while (1);
-#else
   NVIC_SystemReset();
-
   while(1);
-#endif
 }
 
 /** Reset handler */
 void __attribute__ ((section(".boot"), noreturn)) Reset_Handler(void)
 {
-
-//    uint32_t k;
-//    RCC->APB2ENR |= (1U << 4);
-//    GPIOC->CRH &= 0xFF0FFFFF;
-//    GPIOC->CRH |= (1U << 20);
-//
-//    while(1){
-//        k = 0xFFFF;
-//        while(k--);
-//        GPIOC->ODR ^= (1U << 13);
-//    }
-
     startup();
     while(1);
 }

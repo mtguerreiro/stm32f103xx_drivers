@@ -109,7 +109,9 @@ void startup(void){
 //-----------------------------
 void startupHW(void){
 
-	startupClockHSE();
+	uint32_t status;
+
+	status = startupClockHSE();
 
 	startupDisableJTAG();
 }
@@ -163,7 +165,7 @@ uint32_t startupClockHSE(void){
 
     /* Turns PLL on and waits until it is stable */
     k = configSTARTUP_CLK_TIMEOUT;
-    //RCC->CR |= RCC_CR_PLLON;
+    RCC->CR |= RCC_CR_PLLON;
     while(!(RCC->CR & RCC_CR_PLLRDY) && --k);
     if(k == 0){
     	/* If timed out, turns HSE and PLL off */

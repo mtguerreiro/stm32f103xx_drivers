@@ -21,6 +21,9 @@
  *	-v0.1.3
  *		- Modularization for serialSend and serialSendString
  *
+ *	-v0.1.4
+ *		- Added serialRead for master-like serial receive
+ *
  */
 
 #ifndef SERIAL_H_
@@ -79,6 +82,7 @@ uint8_t serialInstallID(uint32_t id, serialHandler_t handler);
 uint8_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 uint8_t serialSendString(uint32_t id, void *string);
 uint8_t serialSendStringRaw(void *string);
+uint8_t serialReceive(uint32_t id, uint8_t *buffer);
 //=============================
 
 #endif /* SERIAL_H_ */

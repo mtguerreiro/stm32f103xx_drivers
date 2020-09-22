@@ -28,6 +28,7 @@ typedef enum{
 	ST_DATA_SIZE,
 	ST_DATA,
 	ST_STOP,
+	ST_SUCCESSFUL,
 	ST_END
 }serialSMStates_t;
 //-----------------------------
@@ -72,6 +73,7 @@ static void serialStateID(void);
 static void serialStataDataSize(void);
 static void serialStateData(void);
 static void serialStateStop(void);
+static void serialStateSuccessful(void);
 static uint32_t serialFindID(uint32_t id);
 static uint8_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 //=============================
@@ -109,6 +111,7 @@ void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer){
 	serialSMControl.functions[ST_DATA_SIZE] = serialStataDataSize;
 	serialSMControl.functions[ST_DATA] = serialStateData;
 	serialSMControl.functions[ST_STOP] = serialStateStop;
+	serialSMControl.functions[ST_SUCCESSFUL] = serialStateSuccessful;
 }
 //-----------------------------
 uint8_t serialRun(void){
@@ -222,6 +225,36 @@ uint8_t serialSendStringRaw(void *string){
 	}
 
 //	serialControl.txBusy = 0;
+	return 0;
+}
+//-----------------------------
+uint8_t serialReceive(uint32_t id, uint8_t *buffer){
+
+	/* Initial state */
+	serialSMControl.state = ST_START;
+
+	/*
+	 * Runs the start state. If this functions returns and the state still is
+	 * ST_START, then we have not received anything from the UART, and we
+	 * return an error.
+	 */
+	serialStateStart();
+	if(serialSMControl.state == ST_START) return 1;
+
+	/*
+	 * Now we will execute the state machine until we get either the the
+	 * start or successful state. If we get to a start state first, there was
+	 * an error during communication. If we get to the successful state, then
+	 * a transmission was completed.
+	 */
+	while((serialSMControl.state != ST_START) && (serialSMControl.state != ST_SUCCESSFUL)){
+		serialSMControl.functions[serialSMControl.state]();
+	}
+
+	if(serialSMControl.state == ST_START) return 2;
+
+	serialSMControl.state = ST_START;
+
 	return 0;
 }
 //-----------------------------
@@ -356,6 +389,11 @@ static void serialStateStop(void){
 //	serialControl.dataAvailable = 1;
 
 	if( serialControl.handler[serialControl.currentId] ) serialControl.handler[serialControl.currentId]();
+
+	serialSMControl.state = ST_SUCCESSFUL;
+}
+//-----------------------------
+static void serialStateSuccessful(void){
 
 	serialSMControl.state = ST_START;
 }

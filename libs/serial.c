@@ -228,7 +228,7 @@ uint8_t serialSendStringRaw(void *string){
 	return 0;
 }
 //-----------------------------
-uint8_t serialReceive(uint32_t id, uint8_t *buffer){
+uint8_t serialReceive(uint32_t id){
 
 	/* Initial state */
 	serialSMControl.state = ST_START;

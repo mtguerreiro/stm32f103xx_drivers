@@ -82,7 +82,7 @@ uint8_t serialInstallID(uint32_t id, serialHandler_t handler);
 uint8_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 uint8_t serialSendString(uint32_t id, void *string);
 uint8_t serialSendStringRaw(void *string);
-uint8_t serialReceive(uint32_t id, uint8_t *buffer);
+uint8_t serialReceive(uint32_t id);
 //=============================
 
 #endif /* SERIAL_H_ */

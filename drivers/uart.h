@@ -3,12 +3,16 @@
  *
  *	UART driver for STM32F103xx devices.
  *
- *	Current version: v0.1.1.
+ *	Current version: v0.1.2.
  *
  *	- v0.1.0:
  *		- Overall improvements in code.
+ *
  *	- v0.1.1:
  *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
+ *
+ *	-v0.1.2:
+ *		- Added uartRXFlush.
  *
  *
  *	Melhorias
@@ -71,6 +75,7 @@ uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud);
 uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
 uint8_t uartWriteString(USART_TypeDef *uart, void *str);
 uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
+void uartRXFlush(USART_TypeDef *uart);
 //=============================
 
 

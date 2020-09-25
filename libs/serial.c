@@ -70,7 +70,7 @@ typedef struct{
 //=============================
 static void serialStateStart(void);
 static void serialStateID(void);
-static void serialStataDataSize(void);
+static void serialStateDataSize(void);
 static void serialStateData(void);
 static void serialStateStop(void);
 static void serialStateSuccessful(void);
@@ -108,7 +108,7 @@ void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer){
 	/* State functions */
 	serialSMControl.functions[ST_START] = serialStateStart;
 	serialSMControl.functions[ST_ID] = serialStateID;
-	serialSMControl.functions[ST_DATA_SIZE] = serialStataDataSize;
+	serialSMControl.functions[ST_DATA_SIZE] = serialStateDataSize;
 	serialSMControl.functions[ST_DATA] = serialStateData;
 	serialSMControl.functions[ST_STOP] = serialStateStop;
 	serialSMControl.functions[ST_SUCCESSFUL] = serialStateSuccessful;
@@ -230,6 +230,20 @@ uint8_t serialSendStringRaw(void *string){
 //-----------------------------
 uint8_t serialReceive(uint32_t id){
 
+	/*
+	 * Here, we run state by state.
+	 */
+
+	/*
+	 * Clears all bytes on the RX queue of UART. Since this is a receive for
+	 * a master-like communication, there should be no unprocessed data in
+	 * the buffer. However, there may be unprocessed data for the case where
+	 * there as an frame error and all the data ended up in the queue.
+	 * Anyway, any data in the buffer at this stage is not important as we
+	 * are more concerned about the new incoming data.
+	 */
+	uartRXFlush(serialControl.uart);
+
 	/* Initial state */
 	serialSMControl.state = ST_START;
 
@@ -242,16 +256,33 @@ uint8_t serialReceive(uint32_t id){
 	if(serialSMControl.state == ST_START) return 1;
 
 	/*
-	 * Now we will execute the state machine until we get either the the
-	 * start or successful state. If we get to a start state first, there was
-	 * an error during communication. If we get to the successful state, then
-	 * a transmission was completed.
+	 * The next state is the ID state, where we expect the ID, or command.
+	 * If the function returns the ST_START state, then something went wrong
+	 * and we return an error.
+	 * In addition, we check the ID. If the ID matches the expected, we
+	 * continue with the state machine. However, if something different was
+	 * received, we set the state to ST_START and return an error.
 	 */
-	while((serialSMControl.state != ST_START) && (serialSMControl.state != ST_SUCCESSFUL)){
-		serialSMControl.functions[serialSMControl.state]();
+	serialStateID();
+	if(serialSMControl.state == ST_START) return 2;
+	if(serialControl.id[serialControl.currentId] != id){
+		serialSMControl.state = ST_START;
+		return 3;
 	}
 
-	if(serialSMControl.state == ST_START) return 2;
+	/*
+	 * Execute the next states (data size, data and stop ). After executing
+	 * the stop state, we will verify if the entire frame, including the stop
+	 * bytes, was received successfully, and return accordingly.
+	 */
+	serialStateDataSize();
+	if(serialSMControl.state == ST_START) return 4;
+
+	serialStateData();
+	if(serialSMControl.state == ST_START) return 5;
+
+	serialStateStop();
+	if(serialSMControl.state == ST_START) return 6;
 
 	serialSMControl.state = ST_START;
 
@@ -314,7 +345,7 @@ static void serialStateID(void){
 	serialSMControl.state = ST_DATA_SIZE;
 }
 //-----------------------------
-static void serialStataDataSize(void){
+static void serialStateDataSize(void){
 
 	uint8_t k;
 	uint8_t buffer;

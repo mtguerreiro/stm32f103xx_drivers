@@ -110,6 +110,15 @@ uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles){
 	return 0;
 }
 //-----------------------------
+void uartRXFlush(USART_TypeDef *uart){
+
+	uint8_t qidx;
+
+	qidx = uartQueueIndex(uart);
+
+	xQueueReset(uartRXQueue[qidx]);
+}
+//-----------------------------
 //=============================
 
 //=============================

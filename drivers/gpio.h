@@ -1,7 +1,7 @@
 /*
  * gpio.h
  *
- *	Current version: v0.1.2.
+ *	Current version: v0.1.3.
  *
  *	v0.1.0:
  *		- Initial version
@@ -12,6 +12,11 @@
  *	-v0.1.2:
  *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
  *
+ *	-v0.1.3:
+ *		- Changed gpioOutputWrite to accept the pins and the values.
+ *		- Updated the code formatting.
+ *		- Added gpioInputRead.
+ *
  *  Created on: March 10, 2019
  *      Author: Marco
  */
@@ -19,53 +24,54 @@
 #ifndef GPIO_H_
 #define GPIO_H_
 
-//=============================
-/*-------- Includes ---------*/
-//=============================
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 /* Standard libs */
 #include <stdint.h>
 
 /* Device */
 #include "stm32f10x.h"
-//=============================
+//===========================================================================
 
-//=============================
-/*-------- Functions --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Functions -------------------------------*/
+//===========================================================================
 void gpioPortEnable(GPIO_TypeDef *port);
 void gpioConfig(GPIO_TypeDef *port, uint16_t pins, uint8_t mode, uint8_t conf);
 void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputSet(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputReset(GPIO_TypeDef *port, uint16_t pins);
-void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins);
+void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins, uint16_t data);
 uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins);
-//=============================
+uint32_t gpioInputRead(GPIO_TypeDef *port, uint16_t pins);
+//===========================================================================
 
-//=============================
-/*--------- Enums -----------*/
-//=============================
-//-----------------------------
+//===========================================================================
+/*--------------------------------- Enums ---------------------------------*/
+//===========================================================================
+//---------------------------------------------------------------------------
 typedef enum{
 	GPIO_MODE_INPUT,
 	GPIO_MODE_OUTPUT_10MHZ,
 	GPIO_MODE_OUTPUT_2MHZ,
 	GPIO_MODE_OUTPUT_50MHZ
 }gpioMode_et;
-//-----------------------------
+//---------------------------------------------------------------------------
 typedef enum{
 	GPIO_CONFIG_INPUT_ANALOG,
 	GPIO_CONFIG_INPUT_FLOAT,
 	GPIO_CONFIG_INPUT_PULL_UP,
 	GPIO_CONFIG_INPUT_PULL_DOWN
 }gpioConfigInput_et;
-//-----------------------------
+//---------------------------------------------------------------------------
 typedef enum{
 	GPIO_CONFIG_OUTPUT_GP_PUSH_PULL,
 	GPIO_CONFIG_OUTPUT_GP_OPEN_DRAIN,
 	GPIO_CONFIG_OUTPUT_AF_PUSH_PULL,
 	GPIO_CONFIG_OUTPUT_AF_OPEN_DRAIN
 }gpioConfigOutput_et;
-//-----------------------------
+//---------------------------------------------------------------------------
 typedef enum{
 	GPIO_P0 = 1U << 0,
 	GPIO_P1 = 1U << 1,
@@ -84,7 +90,7 @@ typedef enum{
 	GPIO_P14 = 1U << 14,
 	GPIO_P15 = 1U << 15
 }gpioPin_et;
-//-----------------------------
-//=============================
+//---------------------------------------------------------------------------
+//===========================================================================
 
 #endif /* GPIO_H_ */

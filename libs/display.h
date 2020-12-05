@@ -9,7 +9,7 @@
  *	All timings between commands have been tuned to work with STM32F103RET6 @ 72 MHz
  *	main clock.
  *
- *	Current version: v0.1.4
+ *	Current version: v0.1.5
  *
  *	Possible issues:
  *		- #1 (v0.1.3 - resolving in v0.1.4)
@@ -34,6 +34,10 @@
  *		- Created macros to define the enable pulse width.
  *		- Created macros to define the delay for data and
  *		instruction writes.
+ *
+ *	v0.1.5:
+ *		- Updated lib for the new gpio driver.
+ *		- Updated code formatting;
  */
 
 #ifndef DISPLAY_H_
@@ -49,9 +53,9 @@
  */
 
 
-//=============================
-/*--------- Includes --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 /* Standard */
 #include <stdint.h>
 
@@ -60,18 +64,18 @@
 
 /* Drivers */
 #include "gpio.h"
-//=============================
+//===========================================================================
 
-//=============================
-/*--------- Defines ---------*/
-//=============================
+//===========================================================================
+/*-------------------------------- Defines --------------------------------*/
+//===========================================================================
 /* For now, not a good idea to change these */
-#define	configDISPLAY_RS		GPIO_PB_3
-#define configDISPLAY_EN		GPIO_PB_4
-#define	configDISPLAY_D4		GPIO_PB_5
-#define configDISPLAY_D5		GPIO_PB_6
-#define configDISPLAY_D6		GPIO_PB_7
-#define configDISPLAY_D7		GPIO_PB_8
+#define	configDISPLAY_RS		GPIO_P3
+#define configDISPLAY_EN		GPIO_P4
+#define	configDISPLAY_D4		GPIO_P5
+#define configDISPLAY_D5		GPIO_P6
+#define configDISPLAY_D6		GPIO_P7
+#define configDISPLAY_D7		GPIO_P8
 
 /* Entry mode set options */
 #define	DISPLAY_MODESET_ID_INC	(1U << 1)
@@ -98,11 +102,11 @@
 #define configDISPLAY_DATA_WRITE_DELAY			(0xE10 >> 3)
 #define configDISPLAY_INSTRUCTION_WRITE_DELAY	(0xE10 >> 3)
 
-//=============================
+//===========================================================================
 
-//=============================
-/*-------- Functions --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Functions -------------------------------*/
+//===========================================================================
 void displayInitialize(void);
 void displayWrite(uint8_t *buffer, uint8_t nbytes);
 void displayWriteString(uint8_t *s);
@@ -112,6 +116,6 @@ void displayClearLine(uint8_t line);
 void displaySetCursorHome(void);
 void displayEntryModeSet(uint8_t mode);
 void displayControl(uint8_t mode);
-//=============================
+//===========================================================================
 
 #endif /* DISPLAY_H_ */

@@ -41,14 +41,6 @@ static void displayWriteData(uint8_t data);
 #define DISPLAY_MODESET_ID_DEC	(0)
 #define DISPLAY_MODESET_SHIFT	(1U << 0)
 
-/* Display control options */
-#define DISPLAY_CONTROL_D_ON	(1U << 2)
-#define DISPLAY_CONTROL_D_OFF	(0)
-#define DISPLAY_CONTROL_C_ON	(1U << 1)
-#define DISPLAY_CONTROL_C_OFF	(0)
-#define DISPLAY_CONTROL_B_ON	(1U)
-#define DISPLAY_CONTROL_B_OFF	(0)
-
 /* Enable pulse width (~1us) */
 #define configDISPLAY_EN_DELAY					0x0A
 
@@ -221,6 +213,7 @@ static void displayEnable(void){
 
 	gpioOutputSet(GPIOB, EN);
 	delaysSub(configDISPLAY_EN_DELAY);
+
 	gpioOutputReset(GPIOB, EN);
 	delaysSub(configDISPLAY_EN_DELAY);
 }

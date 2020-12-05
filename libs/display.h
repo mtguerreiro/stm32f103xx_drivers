@@ -80,6 +80,13 @@
 #define configDISPLAY_D6		GPIO_P7
 #define configDISPLAY_D7		GPIO_P8
 
+/* Display control options */
+#define DISPLAY_CONTROL_D_ON	(1U << 2)
+#define DISPLAY_CONTROL_D_OFF	(0)
+#define DISPLAY_CONTROL_C_ON	(1U << 1)
+#define DISPLAY_CONTROL_C_OFF	(0)
+#define DISPLAY_CONTROL_B_ON	(1U)
+#define DISPLAY_CONTROL_B_OFF	(0)
 //===========================================================================
 
 //===========================================================================

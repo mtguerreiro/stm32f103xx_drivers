@@ -5,12 +5,18 @@
  *      Author: Marco
  */
 
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 #include "display.h"
+
+/* Libs */
+#include "delays.h"
+//===========================================================================
 
 //===========================================================================
 /*------------------------------ Prototypes -------------------------------*/
 //===========================================================================
-static void displayInefficientDelay(uint32_t cycles);
 static void displayEnable(void);
 static void displayWriteInstruction(uint8_t data);
 static void displayWriteData(uint8_t data);
@@ -19,15 +25,49 @@ static void displayWriteData(uint8_t data);
 //===========================================================================
 /*-------------------------------- Defines --------------------------------*/
 //===========================================================================
+/* Display pins */
 #define RS			configDISPLAY_RS
 #define EN			configDISPLAY_EN
 #define	D4			configDISPLAY_D4
 #define D5			configDISPLAY_D5
 #define D6			configDISPLAY_D6
 #define D7			configDISPLAY_D7
-//#define MASK		(RS | RW | EN | D4 | D5 | D6 | D7)
+
 #define MASK		(RS | EN | D4 | D5 | D6 | D7)
 #define DATA_MASK	(D4 | D5 | D6 | D7)
+
+/* Entry mode set options */
+#define	DISPLAY_MODESET_ID_INC	(1U << 1)
+#define DISPLAY_MODESET_ID_DEC	(0)
+#define DISPLAY_MODESET_SHIFT	(1U << 0)
+
+/* Display control options */
+#define DISPLAY_CONTROL_D_ON	(1U << 2)
+#define DISPLAY_CONTROL_D_OFF	(0)
+#define DISPLAY_CONTROL_C_ON	(1U << 1)
+#define DISPLAY_CONTROL_C_OFF	(0)
+#define DISPLAY_CONTROL_B_ON	(1U)
+#define DISPLAY_CONTROL_B_OFF	(0)
+
+/* Enable pulse width (~1us) */
+#define configDISPLAY_EN_DELAY					0x0A
+
+/* Data and instruction write delays (~50 us) */
+#define configDISPLAY_DATA_WRITE_DELAY			0x202
+#define configDISPLAY_INSTRUCTION_WRITE_DELAY	0x202
+
+/* Set cursor delay (~50us for set, ~2ms for set home)*/
+#define configDISPLAY_SET_CURSOR_DELAY			0x202
+#define configDISPLAY_SET_CURSOR_HOME_DELAY		0x505B
+
+/* Display clear delay (~2ms) */
+#define configDISPLAY_CLEAR_DELAY				0x505B
+
+/* Display control delay (~50 us) */
+#define configDISPLAY_CONTROL_DELAY				0x202
+
+/* Entry mode set delay (~50 us) */
+#define configDISPLAY_ENTRY_MODE_SET_DELAY		0x202
 //===========================================================================
 
 //===========================================================================
@@ -77,22 +117,20 @@ void displaySetCursor(uint8_t line, uint8_t column){
 	}
 
 	displayWriteInstruction(address | 0x80);
-	displayInefficientDelay(0xE10);
+	delaysSub(configDISPLAY_SET_CURSOR_DELAY);
 }
 //---------------------------------------------------------------------------
 void displayClear(void){
 
 	displayWriteInstruction(0x01);
-	displayInefficientDelay(0xE10 << 3);
+	delaysSub(configDISPLAY_CLEAR_DELAY);
 }
 //---------------------------------------------------------------------------
 void displayClearLine(uint8_t line){
 
-	//uint8_t k  = 20;
 	uint8_t blank[] = "                    ";
 
 	displaySetCursor(line, 0);
-	//while(k--) displayWrite(blank, 1);
 	displayWrite(blank, 20);
 	displaySetCursor(line, 0);
 }
@@ -100,77 +138,74 @@ void displayClearLine(uint8_t line){
 void displaySetCursorHome(void){
 
 	displayWriteInstruction(0x02);
-	displayInefficientDelay(0xE10 << 3);
+	delaysSub(configDISPLAY_SET_CURSOR_HOME_DELAY);
 }
 //---------------------------------------------------------------------------
 void displayEntryModeSet(uint8_t mode){
 
 	displayWriteInstruction(mode | 0x04);
-	displayInefficientDelay(0xE10);
+	delaysSub(configDISPLAY_ENTRY_MODE_SET_DELAY);
 }
 //---------------------------------------------------------------------------
 void displayControl(uint8_t mode){
 
 	displayWriteInstruction(mode | 0x08);
-	displayInefficientDelay(0xE10);
+	delaysSub(configDISPLAY_CONTROL_DELAY);
 }
 //---------------------------------------------------------------------------
 void displayInitialize(void){
 
 	gpioPortEnable(GPIOB);
 	gpioConfig(GPIOB, MASK, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
-//	gpioMode(GPIOB, GPIO_MODE_OUTPUT_10MHZ, MASK);
-//	gpioConfig(GPIOB, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL, MASK);
 
 	/* ~50ms delay and command (first 0x03) */
-	displayInefficientDelay(0x1B7740);
+	delaysSub(0x7D8ED);
 	gpioOutputWrite(GPIOB, MASK, D5 | D4);
 	displayEnable();
-	displayInefficientDelay(0x1B7740);
+	delaysSub(0x7D8ED);
 
 	/* Command and ~5ms delay (second 0x03) */
 	gpioOutputWrite(GPIOB, MASK, D5 | D4);
 	displayEnable();
-	displayInefficientDelay(0x2BF20);
+	delaysSub(0xC8E4);
 
 	/*Command and ~100us delay (third 0x03) */
 	gpioOutputWrite(GPIOB, MASK, D5 | D4);
 	displayEnable();
-	displayInefficientDelay(0xE10);
+	delaysSub(0x1416);
 
 	/* Command and ~100us delay */
 	gpioOutputWrite(GPIOB, MASK, D5);
 	displayEnable();
-	displayInefficientDelay(0xE10);
+	delaysSub(0x1416);
 
 	/* Function set */
 	gpioOutputWrite(GPIOB, MASK, D5);
 	displayEnable();
 	gpioOutputWrite(GPIOB, MASK, D7);
 	displayEnable();
-	displayInefficientDelay(0xE10);
+	delaysSub(0x1416 << 2);
 
 	/* Display on/off */
 	gpioOutputWrite(GPIOB, MASK, 0);
 	displayEnable();
-	//gpioOutputWrite(GPIO_PB, MASK, D6 | D7);
 	gpioOutputWrite(GPIOB, MASK, D7);
 	displayEnable();
-	displayInefficientDelay(0xE10);
+	delaysSub(0x1416);
 
 	/* Entry mode set */
 	gpioOutputWrite(GPIOB, MASK, 0);
 	displayEnable();
 	gpioOutputWrite(GPIOB, MASK, D5 | D6);
 	displayEnable();
-	displayInefficientDelay(0xE10);
+	delaysSub(0x1416);
 
 	/* Display clear */
 	gpioOutputWrite(GPIOB, MASK, 0);
 	displayEnable();
 	gpioOutputWrite(GPIOB, MASK, D4);
 	displayEnable();
-	displayInefficientDelay(0x1B7740);
+	delaysSub(0x7D8ED);
 
 	/* Display on */
 	//gpioOutputWrite(GPIOB, MASK, D6 | D7);
@@ -182,36 +217,34 @@ void displayInitialize(void){
 /*--------------------------- Static functions ----------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-static void displayInefficientDelay(uint32_t cycles){
-
-	while(cycles--);
-}
-//---------------------------------------------------------------------------
 static void displayEnable(void){
 
 	gpioOutputSet(GPIOB, EN);
-	displayInefficientDelay(configDISPLAY_EN_DELAY);
+	delaysSub(configDISPLAY_EN_DELAY);
 	gpioOutputReset(GPIOB, EN);
-	displayInefficientDelay(configDISPLAY_EN_DELAY);
+	delaysSub(configDISPLAY_EN_DELAY);
 }
 //---------------------------------------------------------------------------
 static void displayWriteInstruction(uint8_t data){
 
 	gpioOutputWrite(GPIOB, MASK, (uint16_t)((data << 1) & DATA_MASK));
 	displayEnable();
-	displayInefficientDelay(0xE10 >> 6);
+
 	gpioOutputWrite(GPIOB, MASK, (uint16_t)((data << 5) & DATA_MASK));
 	displayEnable();
-	displayInefficientDelay(configDISPLAY_INSTRUCTION_WRITE_DELAY);
+
+	delaysSub(configDISPLAY_INSTRUCTION_WRITE_DELAY);
 }
 //---------------------------------------------------------------------------
 static void displayWriteData(uint8_t data){
 
 	gpioOutputWrite(GPIOB, MASK, (uint16_t)(RS | ((data << 1) & DATA_MASK)));
 	displayEnable();
+
 	gpioOutputWrite(GPIOB, MASK, (uint16_t)(RS | ((data << 5) & DATA_MASK)));
 	displayEnable();
-	displayInefficientDelay(configDISPLAY_DATA_WRITE_DELAY);
+
+	delaysSub(configDISPLAY_DATA_WRITE_DELAY);
 }
 //---------------------------------------------------------------------------
 //===========================================================================

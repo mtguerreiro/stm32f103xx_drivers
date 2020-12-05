@@ -9,7 +9,7 @@
  *	All timings between commands have been tuned to work with STM32F103RET6 @ 72 MHz
  *	main clock.
  *
- *	Current version: v0.1.5
+ *	Current version: v0.1.6
  *
  *	Possible issues:
  *		- #1 (v0.1.3 - resolving in v0.1.4)
@@ -37,7 +37,10 @@
  *
  *	v0.1.5:
  *		- Updated lib for the new gpio driver.
- *		- Updated code formatting;
+ *		- Updated code formatting.
+ *
+ *	v0.1.6:
+ *		- Updated lib to use a better delay.
  */
 
 #ifndef DISPLAY_H_
@@ -76,31 +79,6 @@
 #define configDISPLAY_D5		GPIO_P6
 #define configDISPLAY_D6		GPIO_P7
 #define configDISPLAY_D7		GPIO_P8
-
-/* Entry mode set options */
-#define	DISPLAY_MODESET_ID_INC	(1U << 1)
-#define DISPLAY_MODESET_ID_DEC	(0)
-#define DISPLAY_MODESET_SHIFT	(1U << 0)
-
-/* Display control options */
-#define DISPLAY_CONTROL_D_ON	(1U << 2)
-#define DISPLAY_CONTROL_D_OFF	(0)
-#define DISPLAY_CONTROL_C_ON	(1U << 1)
-#define DISPLAY_CONTROL_C_OFF	(0)
-#define DISPLAY_CONTROL_B_ON	(1U)
-#define DISPLAY_CONTROL_B_OFF	(0)
-
-/* Enable pulse width */
-/*
- * A value of 0xE10 corresponds to a delay of around 0.5 ms
- * A value of 0xE10 >> 8 corresponds to a delay of around
- * 2.9 us.
- */
-#define configDISPLAY_EN_DELAY					(0xE10 >> 8)
-
-/* Data and instruction write delays */
-#define configDISPLAY_DATA_WRITE_DELAY			(0xE10 >> 3)
-#define configDISPLAY_INSTRUCTION_WRITE_DELAY	(0xE10 >> 3)
 
 //===========================================================================
 

@@ -44,7 +44,9 @@ uint8_t analogInitialize(uint32_t channels){
 	return 0;
 }
 //---------------------------------------------------------------------------
-uint8_t analogRead(uint8_t channel, uint16_t *buffer){
+uint8_t analogRead(uint8_t channel, uint16_t *buffer, uint32_t ticks){
+
+	if( xSemaphoreTake(analogMutex, ticks) != pdTRUE ) return 1;
 
 	/* Selects channel to be first in conversion sequence */
 	ADC1->SQR3 = channel & 0x1F;
@@ -60,10 +62,15 @@ uint8_t analogRead(uint8_t channel, uint16_t *buffer){
 	uint32_t k;
 	k = configANALOG_READ_TIMEOUT;
 	while( !(ADC1->SR & ADC_SR_EOC) && (--k) );
-	if(k == 0) return 1;
+	if(k == 0){
+		xSemaphoreGive(analogMutex);
+		return 2;
+	}
 #endif
 
 	*buffer = (uint16_t)ADC1->DR;
+	xSemaphoreGive(analogMutex);
+
 	return 0;
 }
 //---------------------------------------------------------------------------
@@ -76,7 +83,7 @@ uint8_t analogMutexTake(uint32_t ticks){
 //---------------------------------------------------------------------------
 uint8_t analogMutexGive(void){
 
-	if( xSemaphoreGive(analogMutex) != pdTRUE) return 1;
+	if( xSemaphoreGive(analogMutex) != pdTRUE ) return 1;
 
 	return 0;
 }

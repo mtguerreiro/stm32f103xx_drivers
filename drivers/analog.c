@@ -12,6 +12,9 @@
 
 /* Drivers */
 #include "gpio.h"
+
+/* Libs */
+#include "delays.h"
 //===========================================================================
 
 //===========================================================================
@@ -57,7 +60,7 @@ uint8_t analogRead(uint8_t channel, uint16_t *buffer){
 	uint32_t k;
 	k = configANALOG_READ_TIMEOUT;
 	while( !(ADC1->SR & ADC_SR_EOC) && (--k) );
-	if(!k) return 1;
+	if(k == 0) return 1;
 #endif
 
 	*buffer = (uint16_t)ADC1->DR;
@@ -94,10 +97,13 @@ static uint8_t analogHWInitialize(uint32_t channels){
 	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;
 	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
 
-	/* Turns ADC on and waits initialization */
+	/*
+	 * Turns ADC on and waits initialization. The reference manual states
+	 * that, before calibration, the ADC should be on for at least two ADC
+	 * clock cycles. At 12 MHz, that's around ~0.167 ns. So, we wait ~1 us.
+	 */
 	ADC1->CR2 = ADC_CR2_ADON;
-	k = 0xFF;
-	while(k--);
+	delaysSub(0x0A);
 
 	ADC1->CR2 = ADC_CR2_CAL | ADC_CR2_ADON;
 #if configANALOG_CAL_TIMEOUT == 0
@@ -105,7 +111,7 @@ static uint8_t analogHWInitialize(uint32_t channels){
 #else
 	k = configANALOG_CAL_TIMEOUT;
 	while( (ADC1->CR2 & ADC_CR2_CAL) && (--k) );
-	if(!k) return 1;
+	if(k == 0) return 1;
 #endif
 
 	/* Sets sampling time for all channels to be 239.5 ADC cycles */

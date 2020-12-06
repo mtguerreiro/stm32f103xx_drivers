@@ -20,6 +20,9 @@
 /* Drivers */
 #include "spi.h"
 #include "gpio.h"
+
+/* Libs */
+#include "delays.h"
 //=============================
 
 #define configNRF24L01_CE_PORT		GPIOB
@@ -494,8 +497,9 @@ uint8_t nrf24l01PowerUp(void){
     nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
 
     /* After powering the device, we must wait around 1.5ms */
-    k = 108000 >> 2;
-    while(k--);
+    delaysSub(0x3c44);
+    //k = 108000 >> 2;
+    //while(k--);
 
     /* Reads from NRF register to make sure we wrote it correctly */
     nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);

@@ -1,5 +1,10 @@
-/*
- * spi_bare.h
+/**
+ * @file spi.h
+ * @brief Simple SPI driver for STM32F103x devices.
+ *
+ * This is just a quick SPI driver for SPI1. The SPI is set as master, CPHA and
+ * CPOL are both set to 0, and the speed is set as APB2_CLK / 32.
+ * NSS is not used.
  *
  *  Created on: Apr 21, 2020
  *      Author: marco

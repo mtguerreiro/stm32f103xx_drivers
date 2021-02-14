@@ -77,7 +77,7 @@ static void spibareHWInit(void){
 	uint16_t mosi = 0;
 	uint16_t ck = 0;
 	uint16_t miso = 0;
-	uint16_t clockDiv = 36;
+	uint16_t clockDiv = 4;
 
 	/* Enables clock to SPI peripheral */
 	RCC->APB2ENR |= (uint32_t)(1U << 12);

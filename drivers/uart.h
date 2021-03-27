@@ -43,7 +43,7 @@
 //=============================
 /*--------- Defines ---------*/
 //=============================
-#define configUART1_ENABLED			1
+#define configUART1_ENABLED			0
 #define configUART2_ENABLED			0
 #define configUART3_ENABLED			0
 #define configUART4_ENABLED			0

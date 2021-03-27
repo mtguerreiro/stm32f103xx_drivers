@@ -26,6 +26,7 @@ extern void main(void);
 /* .data and .bss segments */
 extern uint32_t __sdata_ram, __edata_ram, __sdata_flash;
 extern uint32_t __sbss, __ebss;
+
 //=============================
 
 //=============================
@@ -113,6 +114,9 @@ void startupHW(void){
 
 	status = startupClockHSE();
 
+	if(status == 0) SystemCoreClock = 72000000;
+	else SystemCoreClock = 8000000;
+
 	startupDisableJTAG();
 }
 //-----------------------------
@@ -156,7 +160,7 @@ uint32_t startupClockHSE(void){
      * Now, sets the RCC config register.
      *  - PLL input: HSE clock (8 MHz)
      *  - PLL multiplier: 9 (PLL output: 8 MHz * 9 = 72 MHz)
-     *  - ADC prescaler: 6 (ADC clock: 72 MHz / 6 = 14 MHz)
+     *  - ADC prescaler: 6 (ADC clock: 72 MHz / 6 = 12 MHz)
      *  - APB1 prescaler: 2 (APB1 clock: 72 MHz / 2 = 36 MHz)
      *  - APB2 prescaler: 1 (APB2 clock: 72 MHz)
      *  - AHB prescaler: 1 (AHB clock: 72 MHz)
@@ -168,8 +172,12 @@ uint32_t startupClockHSE(void){
     RCC->CR |= RCC_CR_PLLON;
     while(!(RCC->CR & RCC_CR_PLLRDY) && --k);
     if(k == 0){
-    	/* If timed out, turns HSE and PLL off */
+    	/*
+    	 * If timed out, turns HSE and PLL off and reset dividers for APB1
+    	 * and ADC.
+    	 */
     	RCC->CR &= (uint32_t)(~(RCC_CR_HSEON | RCC_CR_PLLON));
+    	RCC->CFGR = 0;
     	return 2U;
     }
 

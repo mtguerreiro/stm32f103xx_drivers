@@ -1,8 +1,8 @@
 /*
  * cqueue.c
  *
- *  Created on: 13 de mar de 2021
- *      Author: marco
+ *  Created on: March 13, 2021
+ *      Author: Marco
  */
 
 //===========================================================================

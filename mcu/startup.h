@@ -16,6 +16,10 @@
 #ifndef STARTUP_H_
 #define STARTUP_H_
 
+#include <stdint.h>
+
+uint32_t SystemCoreClock;
+
 //=============================
 /*-------- Functions --------*/
 //=============================

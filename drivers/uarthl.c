@@ -275,6 +275,10 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 		if( uart == USART1 ) uart->BRR = (uint32_t)0x271;
 		else uart->BRR = (uint32_t)0x138;
 	}
+	else if( baud == UARTHL_BAUD_460800 ){
+		if( uart == USART1 ) uart->BRR = (uint32_t)0x9C;
+		else uart->BRR = (uint32_t)0x4E;
+	}
 	else{
 		return UARTHL_ERR_INVALID_BAUD_RATE;
 	}

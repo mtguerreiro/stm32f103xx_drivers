@@ -11,7 +11,7 @@
  * settings are hard-coded as follows:
  * 	- 1 start bit, 8 data bits, 1 stop bit.
  * 	- Clock phase and clock polarity are set to low.
- * 	- Most significant bit are transmitted first.
+ * 	- Least significant bit is sent first.
  * 	- NVIC priority is the same for all UARTs and defined by
  * 	  UARTHL_CONFIG_NVIC_PRIO.
  *
@@ -43,9 +43,9 @@
 #define UARTHL_CONFIG_UART2_ENABLED /**< Enables UART2. */
 
 /* Error codes */
-#define UARTHL_ERR_INVALID_UART				0x01 /**< Invalid UART. */
-#define UARTHL_ERR_INVALID_BAUD_RATE		0x02 /**< Invalid baud rate. */
-#define UARTHL_ERR_TX_NO_SPACE				0x03 /**< TX queue not large enough. */
+#define UARTHL_ERR_INVALID_UART				-0x01 /**< Invalid UART. */
+#define UARTHL_ERR_INVALID_BAUD_RATE		-0x02 /**< Invalid baud rate. */
+#define UARTHL_ERR_TX_NO_SPACE				-0x03 /**< TX queue not large enough. */
 //===========================================================================
 
 //===========================================================================
@@ -72,18 +72,34 @@ typedef enum{
  * @param txBufferSize Size of buffer to hold data to be transmitted.
  * @result 0 if UART was initialized successfully, otherwise an error code.
  */
-uint8_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
+int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize);
 //---------------------------------------------------------------------------
 /**
- * @brief Sends data through the specified uart
+ * @brief Sends data through the specified uart.
+ *
+ * The data is actually written to the TX FIFO queue, and sent through UART
+ * by an interrupt mechanism.
  *
  * @param uart UART to send data.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
+ * @result 0 if data was enqueued successfully, otherwise an error code.
  */
-uint8_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
+int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
+//---------------------------------------------------------------------------
+/**
+ * @brief Reads data from the specified uart.
+ *
+ * The data is actually read from the RX FIFO queue.
+ *
+ * @param uart UART to send data.
+ * @param buffer Pointer to buffer to hold the data read.
+ * @param nbytes Number of bytes to read.
+ * @result 0 if all data was read, otherwise an error code.
+ */
+int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
 //---------------------------------------------------------------------------
 //===========================================================================
 

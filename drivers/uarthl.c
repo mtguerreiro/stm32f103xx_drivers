@@ -32,7 +32,7 @@
  * @result 0 if hardware was initialized successfully, otherwise an error
  *         code.
  */
-uint8_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
+int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
 //---------------------------------------------------------------------------
 /**
  * @brief Initializes software for the specified UART.
@@ -48,7 +48,7 @@ uint8_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
  * @result 0 if software was initialized successfully, otherwise an error
  *         code.
  */
-uint8_t uarthlInitializeSW(USART_TypeDef *uart,\
+int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize);
 //---------------------------------------------------------------------------
@@ -109,11 +109,11 @@ cqueue_t uarthlQueueUART5TX;
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-uint8_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
+int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize){
 
-	uint8_t ret;
+	int32_t ret;
 
 	ret = uarthlInitializeHW(uart, baud);
 	if( ret != 0 ) return ret;
@@ -124,10 +124,10 @@ uint8_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
 	return 0;
 }
 //---------------------------------------------------------------------------
-uint8_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
+int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
 
 	cqueue_t *tx = 0;
-	uint8_t ret;
+	int32_t ret;
 	uint8_t *p;
 
 	tx = uarthlGetTXQueue(uart);
@@ -148,6 +148,28 @@ uint8_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
 	return 0;
 }
 //---------------------------------------------------------------------------
+int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
+
+	cqueue_t *rx = 0;
+	uint8_t ret;
+	uint8_t *p;
+
+	rx = uarthlGetRXQueue(uart);
+	if( rx == 0 ) return UARTHL_ERR_INVALID_UART;
+
+	p = buffer;
+	while( nbytes != 0 ){
+		/* Removes an item from the RX queue */
+		gpioOutputSet(GPIOA, GPIO_P6);
+		while( cqueueRemove(rx, p) != 0 );
+		gpioOutputReset(GPIOA, GPIO_P6);
+		p++;
+		nbytes--;
+	}
+
+	return 0;
+}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 
@@ -155,7 +177,7 @@ uint8_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes){
 /*--------------------------- Static functions ----------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-uint8_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
+int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 	uint32_t _uart = (uint32_t)uart;
 	GPIO_TypeDef *portTX = 0;
@@ -273,7 +295,7 @@ uint8_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 	return 0;
 }
 //---------------------------------------------------------------------------
-uint8_t uarthlInitializeSW(USART_TypeDef *uart,\
+int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize){
 

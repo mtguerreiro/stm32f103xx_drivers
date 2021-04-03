@@ -89,7 +89,9 @@ int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
  * @param timeout Specifies a timeout for writing. If FreeRTOS is used,
  * 		  this is the number in ticks to wait. If FreeRTOS is not used, this
  * 		  is the number of attempts to add an item to the TX queue.
- * @result 0 if data was enqueued successfully, otherwise an error code.
+ * @result 0 if data was enqueued successfully. If a positive number, it is
+ * 		   the number of bytes not sent. If it is a negative number, it is an
+ * 		   error code.
  */
 int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 					uint32_t timeout);
@@ -105,7 +107,8 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
  * @param timeout Specifies a timeout for reading. If FreeRTOS is used, this
  * 		  is the number in ticks to wait. If FreeRTOS is not used, this is
  * 		  the number of attempts to remove an item from the RX queue.
- * @result 0 if all data was read, otherwise an error code.
+ * @result 0 if all data was read. If a positive number, it is the number of
+ * 		   bytes not read. If it is a negative number, it is an error code.
  */
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 				   uint32_t timeout);

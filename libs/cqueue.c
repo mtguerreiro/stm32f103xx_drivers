@@ -9,6 +9,9 @@
 /*------------------------------- Includes --------------------------------*/
 //===========================================================================
 #include "cqueue.h"
+
+#include "stm32f10x.h"
+
 //===========================================================================
 
 //===========================================================================
@@ -29,10 +32,16 @@ void cqueueInitialize(cqueue_t *queue, uint8_t *buffer, uint16_t size){
 //---------------------------------------------------------------------------
 uint8_t cqueueAdd(cqueue_t *queue, uint8_t *data){
 
-	if( queue->space == 0 ) return 1;
+	CQUEUE_CRITICAL_ENTER;
+
+	if( queue->space == 0 ){
+		CQUEUE_CRITICAL_EXIT;
+		return 1;
+	}
+	queue->space--;
+	CQUEUE_CRITICAL_EXIT;
 
 	*queue->tail = *data;
-	queue->space--;
 	queue->tail++;
 	if( queue->tail == queue->bufferEnd ) queue->tail = queue->buffer;
 
@@ -41,11 +50,17 @@ uint8_t cqueueAdd(cqueue_t *queue, uint8_t *data){
 //---------------------------------------------------------------------------
 uint8_t cqueueRemove(cqueue_t *queue, uint8_t *data){
 
+	CQUEUE_CRITICAL_ENTER;
+
 	/* If space == size, there are no items in the queue */
-	if( queue->space == queue->size ) return 1;
+	if( queue->space == queue->size ){
+		CQUEUE_CRITICAL_EXIT;
+		return 1;
+	}
+	queue->space++;
+	CQUEUE_CRITICAL_EXIT;
 
 	*data = *queue->head;
-	queue->space++;
 	queue->head++;
 	if( queue->head == queue->bufferEnd ) queue->head = queue->buffer;
 

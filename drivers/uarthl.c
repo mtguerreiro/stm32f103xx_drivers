@@ -127,9 +127,7 @@ int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
 int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 					uint32_t timeout){
 
-	uint16_t nbytesWritten = 0;
 	cqueue_t *tx = 0;
-	int32_t ret;
 	uint8_t *p;
 	uint32_t to;
 
@@ -140,9 +138,12 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	while( nbytes != 0 ){
 		/* Adds item to the TX queue */
 		to = timeout;
-		while( (cqueueAdd(tx, p) != 0) && (timeout--) );
+		while( (cqueueAdd(tx, p) != 0) && (to != 0) ) to--;
+		if( to == 0 ) break;
+
 		/* Enables tx interrupt if necessary */
 		if( !(uart->CR1 & USART_CR1_TXEIE) ) uart->CR1 |= USART_CR1_TXEIE;
+
 		p++;
 		nbytes--;
 	}
@@ -153,8 +154,8 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 				   uint32_t timeout){
 
+	uint32_t to;
 	cqueue_t *rx = 0;
-	uint8_t ret;
 	uint8_t *p;
 
 	rx = uarthlGetRXQueue(uart);
@@ -163,14 +164,15 @@ int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	p = buffer;
 	while( nbytes != 0 ){
 		/* Removes an item from the RX queue */
-		gpioOutputSet(GPIOA, GPIO_P6);
-		while( cqueueRemove(rx, p) != 0 );
-		gpioOutputReset(GPIOA, GPIO_P6);
+		to = timeout;
+		while( (cqueueRemove(rx, p) != 0) && (to != 0) ) to--;
+		if( to == 0 ) break;
+
 		p++;
 		nbytes--;
 	}
 
-	return 0;
+	return nbytes;
 }
 //---------------------------------------------------------------------------
 //===========================================================================

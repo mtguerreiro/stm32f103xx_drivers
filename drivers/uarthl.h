@@ -86,9 +86,13 @@ int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
  * @param uart UART to send data.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
+ * @param timeout Specifies a timeout for writing. If FreeRTOS is used,
+ * 		  this is the number in ticks to wait. If FreeRTOS is not used, this
+ * 		  is the number of attempts to add an item to the TX queue.
  * @result 0 if data was enqueued successfully, otherwise an error code.
  */
-int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
+int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
+					uint32_t timeout);
 //---------------------------------------------------------------------------
 /**
  * @brief Reads data from the specified uart.
@@ -98,9 +102,13 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
  * @param uart UART to send data.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
+ * @param timeout Specifies a timeout for reading. If FreeRTOS is used, this
+ * 		  is the number in ticks to wait. If FreeRTOS is not used, this is
+ * 		  the number of attempts to remove an item from the RX queue.
  * @result 0 if all data was read, otherwise an error code.
  */
-int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
+int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
+				   uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

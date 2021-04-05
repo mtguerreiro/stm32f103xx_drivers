@@ -39,13 +39,33 @@
 //===========================================================================
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
-#define UARTHL_CONFIG_UART1_ENABLED /**< Enables UART1. */
-#define UARTHL_CONFIG_UART2_ENABLED /**< Enables UART2. */
+/* Enable UARTs */
+#define UARTHL_CONFIG_UART1_ENABLED 	/**< Enables UART1. */
+#define UARTHL_CONFIG_UART2_ENABLED 	/**< Enables UART2. */
+/* FreeRTOS integration */
+#define UARTHL_CONFIG_FREE_RTOS_ENABLED /**< Enables FreeRTOS integration. */
+
 
 /* Error codes */
 #define UARTHL_ERR_INVALID_UART				-0x01 /**< Invalid UART. */
 #define UARTHL_ERR_INVALID_BAUD_RATE		-0x02 /**< Invalid baud rate. */
 #define UARTHL_ERR_TX_NO_SPACE				-0x03 /**< TX queue not large enough. */
+#define UARTHL_ERR_SEMPH_CREATE				-0x04 /**< Could no create semaphores.*/
+
+
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+#define UARTHL_EVENT_BITS_U1_TX_RDY			(1 << 0) 	/**< Space available in UART1 TX queue. */
+#define UARTHL_EVENT_BITS_U1_RX_RDY			(1 << 1) 	/**< Data available in UART1 RX queue. */
+#define UARTHL_EVENT_BITS_U2_TX_RDY			(1 << 2) 	/**< Space available in UART2 TX queue. */
+#define UARTHL_EVENT_BITS_U2_RX_RDY			(1 << 3) 	/**< Data available in UART2 RX queue. */
+#define UARTHL_EVENT_BITS_U3_TX_RDY			(1 << 4) 	/**< Space available in UART3 TX queue. */
+#define UARTHL_EVENT_BITS_U3_RX_RDY			(1 << 5) 	/**< Data available in UART3 RX queue. */
+#define UARTHL_EVENT_BITS_U4_TX_RDY			(1 << 6) 	/**< Space available in UART4 TX queue. */
+#define UARTHL_EVENT_BITS_U4_RX_RDY			(1 << 7) 	/**< Data available in UART4 RX queue. */
+#define UARTHL_EVENT_BITS_U5_TX_RDY			(1 << 8) 	/**< Space available in UART5 TX queue. */
+#define UARTHL_EVENT_BITS_U5_RX_RDY			(1 << 9) 	/**< Data available in UART5 RX queue. */
+#define UARTHL_EVENT_BITS_GROUP_SET			(1 << 10)	/**< Event group initialized. */
+#endif
 //===========================================================================
 
 //===========================================================================
@@ -112,6 +132,10 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
  */
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 				   uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t uarthlPendRXSemaphore(USART_TypeDef *uart, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

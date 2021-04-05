@@ -15,6 +15,28 @@
 
 /* Drivers */
 #include "gpio.h"
+
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+/* Kernel */
+#include "FreeRTOS.h"
+#include "event_groups.h"
+#include "semphr.h"
+#include "queue.h"
+#endif
+//===========================================================================
+
+//===========================================================================
+/*-------------------------------- Structs --------------------------------*/
+//===========================================================================
+typedef struct{
+	cqueue_t rxQueue;			/**< RX queue. */
+	cqueue_t txQueue;			/**< TX queue. */
+
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
+	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
+#endif
+}uarthlControl_t;
 //===========================================================================
 
 //===========================================================================
@@ -68,6 +90,14 @@ cqueue_t* uarthlGetRXQueue(USART_TypeDef *uart);
  */
 cqueue_t* uarthlGetTXQueue(USART_TypeDef *uart);
 //---------------------------------------------------------------------------
+/**
+ * @brief Gets pointer for the TX queue of the specified uart.
+ *
+ * @param uart UART.
+ * @result Pointer to buffer or 0 if buffer was not found.
+ */
+uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -80,28 +110,23 @@ cqueue_t* uarthlGetTXQueue(USART_TypeDef *uart);
 /*-------------------------------- Globals --------------------------------*/
 //===========================================================================
 #ifdef UARTHL_CONFIG_UART1_ENABLED
-cqueue_t uarthlQueueUART1RX;
-cqueue_t uarthlQueueUART1TX;
+uarthlControl_t uarthlUART1Control;
 #endif
 
 #ifdef UARTHL_CONFIG_UART2_ENABLED
-cqueue_t uarthlQueueUART2RX;
-cqueue_t uarthlQueueUART2TX;
+uarthlControl_t uarthlUART2Control;
 #endif
 
 #ifdef UARTHL_CONFIG_UART3_ENABLED
-cqueue_t uarthlQueueUART3RX;
-cqueue_t uarthlQueueUART3TX;
+uarthlControl_t uarthlUART3Control;
 #endif
 
 #ifdef UARTHL_CONFIG_UART4_ENABLED
-cqueue_t uarthlQueueUART4RX;
-cqueue_t uarthlQueueUART4TX;
+uarthlControl_t uarthlUART4Control;
 #endif
 
 #ifdef UARTHL_CONFIG_UART5_ENABLED
-cqueue_t uarthlQueueUART5RX;
-cqueue_t uarthlQueueUART5TX;
+uarthlControl_t uarthlUART5Control;
 #endif
 //===========================================================================
 
@@ -127,18 +152,18 @@ int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
 int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 					uint32_t timeout){
 
-	cqueue_t *tx = 0;
+	uarthlControl_t *uartControl = 0;
 	uint8_t *p;
 	uint32_t to;
 
-	tx = uarthlGetTXQueue(uart);
-	if( tx == 0 ) return UARTHL_ERR_INVALID_UART;
+	uartControl = uarthlGetControlStruct(uart);
+	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
 
 	p = buffer;
 	while( nbytes != 0 ){
 		/* Adds item to the TX queue */
 		to = timeout;
-		while( (cqueueAdd(tx, p) != 0) && (to != 0) ) to--;
+		while( (cqueueAdd(&uartControl->txQueue, p) != 0) && (to != 0) ) to--;
 		if( to == 0 ) break;
 
 		/* Enables tx interrupt if necessary */
@@ -154,18 +179,18 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 				   uint32_t timeout){
 
-	uint32_t to;
-	cqueue_t *rx = 0;
+	uarthlControl_t *uartControl = 0;
 	uint8_t *p;
+	uint32_t to;
 
-	rx = uarthlGetRXQueue(uart);
-	if( rx == 0 ) return UARTHL_ERR_INVALID_UART;
+	uartControl = uarthlGetControlStruct(uart);
+	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
 
 	p = buffer;
 	while( nbytes != 0 ){
 		/* Removes an item from the RX queue */
 		to = timeout;
-		while( (cqueueRemove(rx, p) != 0) && (to != 0) ) to--;
+		while( (cqueueRemove(&uartControl->rxQueue, p) != 0) && (to != 0) ) to--;
 		if( to == 0 ) break;
 
 		p++;
@@ -173,6 +198,28 @@ int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	}
 
 	return nbytes;
+}
+//---------------------------------------------------------------------------
+int32_t uarthlPendRXSemaphore(USART_TypeDef *uart, uint32_t timeout){
+
+	uarthlControl_t *uartControl = 0;
+	uartControl = uarthlGetControlStruct(uart);
+	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
+
+	if( xSemaphoreTake(uartControl->rxSemph, timeout) != pdTRUE ) return 1;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout){
+
+	uarthlControl_t *uartControl = 0;
+	uartControl = uarthlGetControlStruct(uart);
+	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
+
+	if( xSemaphoreTake(uartControl->txSemph, timeout) != pdTRUE ) return 1;
+
+	return 0;
 }
 //---------------------------------------------------------------------------
 //===========================================================================
@@ -308,92 +355,62 @@ int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize){
 
-	cqueue_t *rx = 0;
-	cqueue_t *tx = 0;
+	uarthlControl_t *uartControl = 0;
 
-	rx = uarthlGetRXQueue(uart);
-	tx = uarthlGetTXQueue(uart);
+	uartControl = uarthlGetControlStruct(uart);
+	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
 
-	if( (rx == 0) || (tx == 0) ) return UARTHL_ERR_INVALID_UART;
+	cqueueInitialize(&uartControl->rxQueue, rxBuffer, rxBufferSize);
+	cqueueInitialize(&uartControl->txQueue, txBuffer, txBufferSize);
 
-	cqueueInitialize(rx, rxBuffer, rxBufferSize);
-	cqueueInitialize(tx, txBuffer, txBufferSize);
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+	uartControl->txSemph = xSemaphoreCreateBinary();
+	uartControl->rxSemph = xSemaphoreCreateBinary();
+	if( (uartControl->txSemph == NULL) || (uartControl->rxSemph == NULL) ){
+		return UARTHL_ERR_SEMPH_CREATE;
+	}
+	xSemaphoreGive(uartControl->rxSemph);
+	xSemaphoreGive(uartControl->txSemph);
+#endif
 
 	return 0;
 }
 //---------------------------------------------------------------------------
-cqueue_t* uarthlGetRXQueue(USART_TypeDef *uart){
+uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
 
 	uint32_t _uart = (uint32_t)uart;
-	cqueue_t *rx = 0;
+	uarthlControl_t *uartControl = 0;
 
 	switch (_uart){
 
 #ifdef UARTHL_CONFIG_UART1_ENABLED
 	case USART1_BASE:
-		rx = &uarthlQueueUART1RX;
+		uartControl = &uarthlUART1Control;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART2_ENABLED
 	case USART2_BASE:
-		rx = &uarthlQueueUART2RX;
+		uartControl = &uarthlUART2Control;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART3_ENABLED
 	case USART3_BASE:
-		rx = &uarthlQueueUART3RX;
+		uartControl = &uarthlUART3Control;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART4_ENABLED
 	case UART4_BASE:
-		rx = &uarthlQueueUART4RX;
+		uartControl = &uarthlUART4Control;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART5_ENABLED
 	case UART5_BASE:
-		rx = &uarthlQueueUART5RX;
+		uartControl = &uarthlUART5Control;
 		break;
 #endif
 	}
 
-	return rx;
-}
-//---------------------------------------------------------------------------
-cqueue_t* uarthlGetTXQueue(USART_TypeDef *uart){
-
-	uint32_t _uart = (uint32_t)uart;
-	cqueue_t *tx = 0;
-
-	switch (_uart){
-
-#ifdef UARTHL_CONFIG_UART1_ENABLED
-	case USART1_BASE:
-		tx = &uarthlQueueUART1TX;
-		break;
-#endif
-#ifdef UARTHL_CONFIG_UART2_ENABLED
-	case USART2_BASE:
-		tx = &uarthlQueueUART2TX;
-		break;
-#endif
-#ifdef UARTHL_CONFIG_UART3_ENABLED
-	case USART3_BASE:
-		tx = &uarthlQueueUART3TX;
-		break;
-#endif
-#ifdef UARTHL_CONFIG_UART4_ENABLED
-	case UART4_BASE:
-		tx = &uarthlQueueUART4TX;
-		break;
-#endif
-#ifdef UARTHL_CONFIG_UART5_ENABLED
-	case UART5_BASE:
-		tx = &uarthlQueueUART5TX;
-		break;
-#endif
-	}
-
-	return tx;
+	return uartControl;
 }
 //---------------------------------------------------------------------------
 //===========================================================================
@@ -416,27 +433,31 @@ void USART1_IRQHandler(void){
 	/* Data received */
 	if( usartStatus & USART_SR_RXNE ){
 		rxData = (uint8_t) USART1->DR;
-#if (configUART_INTERRUPT_YIELD == 1)
+		cqueueAdd(&uarthlUART1Control.rxQueue, &rxData);
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-		xQueueSendToBackFromISR(uartRXQueue[0], &rxData, &xHigherPriorityTaskWoken);
-		if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-#else
-		cqueueAdd(&uarthlQueueUART1RX, &rxData);
+		xSemaphoreGiveFromISR(uarthlUART1Control.rxSemph, &xHigherPriorityTaskWoken);
+		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 #endif
-	}
+	} //if( usartStatus & USART_SR_RXNE )
+
 	/* Transmitter ready */
-	if( usartStatus & USART_SR_TXE ){
-		if( cqueueRemove(&uarthlQueueUART1TX, &txData) == 0 ){
+	else if( usartStatus & USART_SR_TXE ){
+		if( cqueueRemove(&uarthlUART1Control.txQueue, &txData) == 0 ){
 			USART1->DR = (uint16_t)txData;
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(uarthlUART1Control.txSemph, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		else{
 			/* Disables TX interrupt if queue is empty */
 			USART1->CR1 &= (uint16_t)(~USART_CR1_TXEIE);
 		}
-	}
+	}//else if( usartStatus & USART_SR_TXE )
 
 	gpioOutputReset(GPIOA, GPIO_P7);
-
 }
 #endif
 //-----------------------------

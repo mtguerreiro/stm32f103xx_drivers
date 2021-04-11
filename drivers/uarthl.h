@@ -4,16 +4,15 @@
  *
  * The driver expects that the system clock is 72 MHz. In this case, we
  * consider that the clock for UART1 is also 72 MHz but for the other UARTs
- *  we expect it to be 36 MHz. Maybe we'll consider other clocks in the
- *  future (probably 8 MHz, which is the standard if the HSE fails).
+ * we expect it to be 36 MHz. Maybe we'll consider other clocks in the
+ * future (probably 8 MHz, which is the standard if the HSE fails).
  *
  * For now, the acceptable baud rates are given by uarthlBR_t. All UARTs
  * settings are hard-coded as follows:
  * 	- 1 start bit, 8 data bits, 1 stop bit.
  * 	- Clock phase and clock polarity are set to low.
  * 	- Least significant bit is sent first.
- * 	- NVIC priority is the same for all UARTs and defined by
- * 	  UARTHL_CONFIG_NVIC_PRIO.
+ * 	- NVIC priority is defined by UARTHL_CONFIG_UARTx_NVIC_PRIO.
  *
  * To save code space, UARTs must be enabled by defining:
  * 	- UARTHL_CONFIG_UARTx_ENABLED,
@@ -40,11 +39,17 @@
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
 /* Enable UARTs */
-#define UARTHL_CONFIG_UART1_ENABLED 	/**< Enables UART1. */
-#define UARTHL_CONFIG_UART2_ENABLED 	/**< Enables UART2. */
-/* FreeRTOS integration */
-#define UARTHL_CONFIG_FREE_RTOS_ENABLED /**< Enables FreeRTOS integration. */
+#define UARTHL_CONFIG_UART1_ENABLED 		/**< Enables UART1. */
+//#define UARTHL_CONFIG_UART1_RTOS_EN		/**< Enables FreeRTOS integration for UART1. */
 
+#define UARTHL_CONFIG_UART2_ENABLED 		/**< Enables UART2. */
+
+/* Priority for UART interrupt */
+#define UARTHL_CONFIG_UART1_NVIC_PRIO		0x06 /**< NVIC UART1 priority. */
+#define UARTHL_CONFIG_UART2_NVIC_PRIO		0x06 /**< NVIC UART2 priority. */
+#define UARTHL_CONFIG_UART3_NVIC_PRIO		0x06 /**< NVIC UART3 priority. */
+#define UARTHL_CONFIG_UART4_NVIC_PRIO		0x06 /**< NVIC UART4 priority. */
+#define UARTHL_CONFIG_UART5_NVIC_PRIO		0x06 /**< NVIC UART5 priority. */
 
 /* Error codes */
 #define UARTHL_ERR_INVALID_UART				-0x01 /**< Invalid UART. */
@@ -52,19 +57,12 @@
 #define UARTHL_ERR_TX_NO_SPACE				-0x03 /**< TX queue not large enough. */
 #define UARTHL_ERR_SEMPH_CREATE				-0x04 /**< Could no create semaphores.*/
 
-
-#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-#define UARTHL_EVENT_BITS_U1_TX_RDY			(1 << 0) 	/**< Space available in UART1 TX queue. */
-#define UARTHL_EVENT_BITS_U1_RX_RDY			(1 << 1) 	/**< Data available in UART1 RX queue. */
-#define UARTHL_EVENT_BITS_U2_TX_RDY			(1 << 2) 	/**< Space available in UART2 TX queue. */
-#define UARTHL_EVENT_BITS_U2_RX_RDY			(1 << 3) 	/**< Data available in UART2 RX queue. */
-#define UARTHL_EVENT_BITS_U3_TX_RDY			(1 << 4) 	/**< Space available in UART3 TX queue. */
-#define UARTHL_EVENT_BITS_U3_RX_RDY			(1 << 5) 	/**< Data available in UART3 RX queue. */
-#define UARTHL_EVENT_BITS_U4_TX_RDY			(1 << 6) 	/**< Space available in UART4 TX queue. */
-#define UARTHL_EVENT_BITS_U4_RX_RDY			(1 << 7) 	/**< Data available in UART4 RX queue. */
-#define UARTHL_EVENT_BITS_U5_TX_RDY			(1 << 8) 	/**< Space available in UART5 TX queue. */
-#define UARTHL_EVENT_BITS_U5_RX_RDY			(1 << 9) 	/**< Data available in UART5 RX queue. */
-#define UARTHL_EVENT_BITS_GROUP_SET			(1 << 10)	/**< Event group initialized. */
+#if defined(UARTHL_CONFIG_UART1_RTOS_EN) || \
+	defined(UARTHL_CONFIG_UART2_RTOS_EN) || \
+	defined(UARTHL_CONFIG_UART3_RTOS_EN) || \
+	defined(UARTHL_CONFIG_UART4_RTOS_EN) || \
+	defined(UARTHL_CONFIG_UART5_RTOS_EN)
+#define UARTHL_CONFIG_FREE_RTOS_ENABLED
 #endif
 //===========================================================================
 
@@ -106,12 +104,9 @@ int32_t uarthlInitialize(USART_TypeDef *uart, uarthlBR_t baud, \
  * @param uart UART to send data.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
- * @param timeout Specifies a timeout for writing. If FreeRTOS is used,
- * 		  this is the number in ticks to wait. If FreeRTOS is not used, this
- * 		  is the number of attempts to add an item to the TX queue.
- * @result 0 if data was enqueued successfully. If a positive number, it is
- * 		   the number of bytes not sent. If it is a negative number, it is an
- * 		   error code.
+ * @param timeout Number of attempts to add an item to the TX queue.
+ * @result If a positive number, it is the number of bytes successfully
+ * 		   enqueued. If it is a negative number, it is an error code.
  */
 int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 					uint32_t timeout);
@@ -124,18 +119,40 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
  * @param uart UART to send data.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
- * @param timeout Specifies a timeout for reading. If FreeRTOS is used, this
- * 		  is the number in ticks to wait. If FreeRTOS is not used, this is
- * 		  the number of attempts to remove an item from the RX queue.
- * @result 0 if all data was read. If a positive number, it is the number of
- * 		   bytes not read. If it is a negative number, it is an error code.
+ * @param timeout Number of attempts to remove an item from the RX queue.
+ * @result If a positive number, it is the number of bytes read. If it
+ * 		   is a negative number, it is an error code.
  */
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 				   uint32_t timeout);
 //---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+/**
+ * @brief Pends on the RX semaphore of the specified UART.
+ *
+ * Whenever a new byte is received through UART, the RX semaphore is given.
+ * This function is only available if the FreeRTOS is enabled for the
+ * specified UART.
+ *
+ * @param uart UART to pend.
+ * @param timeout RTOS ticks to wait for the semaphore.
+ */
 int32_t uarthlPendRXSemaphore(USART_TypeDef *uart, uint32_t timeout);
+#endif
 //---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+/**
+ * @brief Pends on the TX semaphore of the specified UART.
+ *
+ * Whenever a new byte is sent through UART, the TX semaphore is given.
+ * This function is only available if the FreeRTOS is enabled for the
+ * specified UART.
+ *
+ * @param uart UART to pend.
+ * @param timeout RTOS ticks to wait for the semaphore.
+ */
 int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout);
+#endif
 //---------------------------------------------------------------------------
 //===========================================================================
 

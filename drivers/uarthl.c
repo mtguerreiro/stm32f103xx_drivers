@@ -26,6 +26,12 @@
 //===========================================================================
 
 //===========================================================================
+/*------------------------------ Definitions ------------------------------*/
+//===========================================================================
+
+//===========================================================================
+
+//===========================================================================
 /*-------------------------------- Structs --------------------------------*/
 //===========================================================================
 typedef struct{
@@ -75,35 +81,18 @@ int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *txBuffer, uint16_t txBufferSize);
 //---------------------------------------------------------------------------
 /**
- * @brief Gets pointer for the RX queue of the specified uart.
+ * @brief Gets pointer for the control structure the specified uart.
  *
  * @param uart UART.
- * @result Pointer to buffer or 0 if buffer was not found.
- */
-cqueue_t* uarthlGetRXQueue(USART_TypeDef *uart);
-//---------------------------------------------------------------------------
-/**
- * @brief Gets pointer for the TX queue of the specified uart.
- *
- * @param uart UART.
- * @result Pointer to buffer or 0 if buffer was not found.
- */
-cqueue_t* uarthlGetTXQueue(USART_TypeDef *uart);
-//---------------------------------------------------------------------------
-/**
- * @brief Gets pointer for the TX queue of the specified uart.
- *
- * @param uart UART.
- * @result Pointer to buffer or 0 if buffer was not found.
+ * @result Pointer to structure or 0 if structure was not found.
  */
 uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
 //---------------------------------------------------------------------------
-//===========================================================================
-
-//===========================================================================
-/*------------------------------ Definitions ------------------------------*/
-//===========================================================================
-#define UARTHL_CONFIG_NVIC_PRIO		0x06 /**< NVIC UART priority. */
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+		uarthlControl_t* uartControl);
+#endif
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -155,12 +144,13 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	uarthlControl_t *uartControl = 0;
 	uint8_t *p;
 	uint32_t to;
+	int32_t bytesWritten = 0;
 
 	uartControl = uarthlGetControlStruct(uart);
 	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
 
 	p = buffer;
-	while( nbytes != 0 ){
+	while( bytesWritten < nbytes ){
 		/* Adds item to the TX queue */
 		to = timeout;
 		while( (cqueueAdd(&uartControl->txQueue, p) != 0) && (to != 0) ) to--;
@@ -170,10 +160,10 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 		if( !(uart->CR1 & USART_CR1_TXEIE) ) uart->CR1 |= USART_CR1_TXEIE;
 
 		p++;
-		nbytes--;
+		bytesWritten++;
 	}
 
-	return nbytes;
+	return bytesWritten;
 }
 //---------------------------------------------------------------------------
 int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
@@ -182,24 +172,26 @@ int32_t uarthlRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	uarthlControl_t *uartControl = 0;
 	uint8_t *p;
 	uint32_t to;
+	int32_t bytesRead = 0;
 
 	uartControl = uarthlGetControlStruct(uart);
 	if( uartControl == 0 ) return UARTHL_ERR_INVALID_UART;
 
 	p = buffer;
-	while( nbytes != 0 ){
+	while( bytesRead < nbytes ){
 		/* Removes an item from the RX queue */
 		to = timeout;
 		while( (cqueueRemove(&uartControl->rxQueue, p) != 0) && (to != 0) ) to--;
 		if( to == 0 ) break;
 
 		p++;
-		nbytes--;
+		bytesRead++;
 	}
 
-	return nbytes;
+	return bytesRead;
 }
 //---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
 int32_t uarthlPendRXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 
 	uarthlControl_t *uartControl = 0;
@@ -210,7 +202,9 @@ int32_t uarthlPendRXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 
 	return 0;
 }
+#endif
 //---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
 int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 
 	uarthlControl_t *uartControl = 0;
@@ -221,6 +215,7 @@ int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 
 	return 0;
 }
+#endif
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -236,7 +231,8 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 	uint16_t portTXPin = 0;
 	GPIO_TypeDef *portRX = 0;
 	uint16_t portRXPin = 0;
-	uint32_t irqn = 0;
+	IRQn_Type irqn = (IRQn_Type) 0;
+	IRQn_Type irqnPrio = (IRQn_Type) 0;
 
 	switch (_uart){
 #ifdef UARTHL_CONFIG_UART1_ENABLED
@@ -252,6 +248,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 		/* IRQ priority */
 		irqn = USART1_IRQn;
+		irqnPrio = (IRQn_Type) UARTHL_CONFIG_UART1_NVIC_PRIO;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART2_ENABLED
@@ -267,6 +264,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 		/* IRQ priority */
 		irqn = USART2_IRQn;
+		irqnPrio = (IRQn_Type) UARTHL_CONFIG_UART2_NVIC_PRIO;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART3_ENABLED
@@ -282,6 +280,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 		/* IRQ priority */
 		irqn = USART3_IRQn;
+		irqnPrio = (IRQn_Type) UARTHL_CONFIG_UART3_NVIC_PRIO;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART4_ENABLED
@@ -296,7 +295,8 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 		portRXPin = GPIO_P11;
 
 		/* IRQ priority */
-		//irqn = UART4_IRQn;
+		irqn = UART4_IRQn;
+		irqnPrio = (IRQn_Type) UARTHL_CONFIG_UART4_NVIC_PRIO;
 		break;
 #endif
 #ifdef UARTHL_CONFIG_UART5_ENABLED
@@ -312,6 +312,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 		/* IRQ priority */
 		irqn = UART5_IRQn;
+		irqnPrio = (IRQn_Type) UARTHL_CONFIG_UART5_NVIC_PRIO;
 		break;
 #endif
 	default:
@@ -342,7 +343,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 	gpioConfig(portRX, portRXPin, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
 
 	/* Sets NVIC priority */
-	NVIC_SetPriority(irqn, UARTHL_CONFIG_NVIC_PRIO);
+	NVIC_SetPriority(irqn, irqnPrio);
 	NVIC_EnableIRQ(irqn);
 
 	/* Sets and enable USART/UART */
@@ -364,13 +365,9 @@ int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 	cqueueInitialize(&uartControl->txQueue, txBuffer, txBufferSize);
 
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-	uartControl->txSemph = xSemaphoreCreateBinary();
-	uartControl->rxSemph = xSemaphoreCreateBinary();
-	if( (uartControl->txSemph == NULL) || (uartControl->rxSemph == NULL) ){
+	if( uartInitializeSWSemph(uart, uartControl) != 0 ){
 		return UARTHL_ERR_SEMPH_CREATE;
 	}
-	xSemaphoreGive(uartControl->rxSemph);
-	xSemaphoreGive(uartControl->txSemph);
 #endif
 
 	return 0;
@@ -413,6 +410,56 @@ uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
 	return uartControl;
 }
 //---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+		uarthlControl_t* uartControl){
+
+	uint32_t _uart = (uint32_t)uart;
+	uint32_t semCreate = 0;
+
+	switch (_uart){
+
+#ifdef UARTHL_CONFIG_UART1_RTOS_EN
+	case USART1_BASE:
+		semCreate = 1;
+		break;
+#endif
+#ifdef UARTHL_CONFIG_UART2_RTOS_EN
+	case USART2_BASE:
+		semCreate = 1;
+		break;
+#endif
+#ifdef UARTHL_CONFIG_UART3_RTOS_EN
+	case USART3_BASE:
+		semCreate = 1;
+		break;
+#endif
+#ifdef UARTHL_CONFIG_UART4_RTOS_EN
+	case UART4_BASE:
+		semCreate = 1;
+		break;
+#endif
+#ifdef UARTHL_CONFIG_UART5_RTOS_EN
+	case UART5_BASE:
+		semCreate = 1;
+		break;
+#endif
+	}
+
+	if( semCreate == 1 ){
+		uartControl->txSemph = xSemaphoreCreateBinary();
+		uartControl->rxSemph = xSemaphoreCreateBinary();
+		if( (uartControl->txSemph == NULL) || (uartControl->rxSemph == NULL) ){
+			return UARTHL_ERR_SEMPH_CREATE;
+		}
+		xSemaphoreGive(uartControl->rxSemph);
+		xSemaphoreGive(uartControl->txSemph);
+	}
+
+	return 0;
+}
+#endif
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -425,8 +472,6 @@ void USART1_IRQHandler(void){
 
 	uint8_t txData, rxData;
 	uint32_t usartStatus;
-
-	gpioOutputSet(GPIOA, GPIO_P7);
 
 	usartStatus = USART1->SR;
 
@@ -456,8 +501,6 @@ void USART1_IRQHandler(void){
 			USART1->CR1 &= (uint16_t)(~USART_CR1_TXEIE);
 		}
 	}//else if( usartStatus & USART_SR_TXE )
-
-	gpioOutputReset(GPIOA, GPIO_P7);
 }
 #endif
 //-----------------------------

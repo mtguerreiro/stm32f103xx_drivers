@@ -10,22 +10,9 @@
 //===========================================================================
 #include "uart.h"
 
-/* Device */
-#include "gpio.h"
-
 /* Kernel */
 #include "FreeRTOS.h"
-#include "queue.h"
 #include "semphr.h"
-//===========================================================================
-
-
-//===========================================================================
-/*------------------------------- Prototypes ------------------------------*/
-//===========================================================================
-//---------------------------------------------------------------------------
-
-//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -53,10 +40,8 @@ int32_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 	p = buffer;
 	bytesWritten = 0;
 	while( bytesWritten < nbytes ){
-		gpioOutputSet(GPIOA, GPIO_P7);
 		/* Tries to get the TX semaphore */
 		if( uarthlPendTXSemaphore(uart, timeout) != 0 ) break;
-		gpioOutputReset(GPIOA, GPIO_P7);
 		/*
 		 * If we got the semaphore, we should be able to write at least one
 		 * byte, so no need to specify a number of attempts higher than 1.
@@ -95,38 +80,5 @@ int32_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 
 	return bytesRead;
 }
-//---------------------------------------------------------------------------
-//uint8_t uartWriteString(USART_TypeDef *uart, void *str){
-//
-//	uint8_t qidx;
-//	uint16_t strSize;
-//	uint32_t queueSize;
-//	uint8_t *buffer = (uint8_t *)str;
-//
-//	qidx = uartQueueIndex(uart);
-//
-//	strSize = 0;
-//	while(*buffer++) strSize++;
-//
-//	queueSize = (uint32_t)uxQueueSpacesAvailable(uartTXQueue[qidx]);
-//	if(strSize > queueSize) return 1;
-//
-//	buffer -= (strSize + 1);
-//
-//	while(*buffer){
-//		if( xQueueSendToBack(uartTXQueue[qidx], buffer++, 0) != pdTRUE ) return 2;
-//	}
-//
-//	uartTriggerTransmission(uart);
-//
-//	return 0;
-//}
-//---------------------------------------------------------------------------
-//===========================================================================
-
-//===========================================================================
-/*--------------------------- Static functions ----------------------------*/
-//===========================================================================
-//---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 //===========================================================================

@@ -3,80 +3,58 @@
  *
  *	UART driver for STM32F103xx devices.
  *
- *	Current version: v0.1.2.
- *
- *	- v0.1.0:
- *		- Overall improvements in code.
- *
- *	- v0.1.1:
- *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
- *
- *	-v0.1.2:
- *		- Added uartRXFlush.
- *
- *
- *	Melhorias
- *		- Baudrate configurável
- *		- Melhorar uso das filas (criar somente a quantidade
- *		necessária)
- *		- "Yield from interrupt" individual
- *		- Pensar em solução para o problema ao tentar enviar uma quantidade
- *		de bytes maior do que o espaço disponível na fila
- *
- *  Created on: March 10, 2019
- *      Author: Marco
  */
 
-#ifndef UART_H_
-#define UART_H_
+#ifndef DRIVERS_UART_H_
+#define DRIVERS_UART_H_
 
-//=============================
-/*--------- Includes --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 /* Standard */
 #include <stdint.h>
 
 /* Device */
 #include "stm32f10x.h"
-//=============================
+#include "uarthl.h"
+//===========================================================================
 
-//=============================
-/*--------- Defines ---------*/
-//=============================
-#define configUART1_ENABLED			0
-#define configUART2_ENABLED			0
-#define configUART3_ENABLED			0
-#define configUART4_ENABLED			0
-#define configUART5_ENABLED			0
+//===========================================================================
+/*-------------------------------- Defines --------------------------------*/
+//===========================================================================
+typedef enum{
+	UART_BAUD_9600 = UARTHL_BAUD_9600,
+	UART_BAUD_115200 = UARTHL_BAUD_115200,
+	UART_BAUD_460800 = UARTHL_BAUD_460800
+}uartBR_t;
+//===========================================================================
 
-/* RX and TX queue size */
-#define configUART1_RXQ_SIZE			35
-#define configUART1_TXQ_SIZE			200
-
-#define configUART2_RXQ_SIZE			25
-#define configUART2_TXQ_SIZE			25
-
-#define configUART3_RXQ_SIZE			25
-#define configUART3_TXQ_SIZE			25
-
-#define configUART4_RXQ_SIZE			25
-#define configUART4_TXQ_SIZE			25
-
-#define configUART5_RXQ_SIZE			25
-#define configUART5_TXQ_SIZE			25
-
-#define configUART_INTERRUPT_YIELD	1
-//=============================
-
-//=============================
-/*-------- Functions --------*/
-//=============================
-uint8_t uartInitialize(USART_TypeDef *uart, uint32_t baud);
-uint8_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes);
-uint8_t uartWriteString(USART_TypeDef *uart, void *str);
-uint8_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint32_t waitcycles);
-void uartRXFlush(USART_TypeDef *uart);
-//=============================
+//===========================================================================
+/*------------------------------- Functions -------------------------------*/
+//===========================================================================
+//---------------------------------------------------------------------------
+/**
+ * @brief Initializes the specified uart.
+ *
+ * @param uart UART to be initialized.
+ * @param baud Baud rate for transmission/reception.
+ * @param rxBuffer Buffer to hold data received.
+ * @param rxBufferSize Size of buffer to hold received data.
+ * @param txBuffer Buffer to hold data to be transmitted.
+ * @param txBufferSize Size of buffer to hold data to be transmitted.
+ * @result 0 if UART was initialized successfully, otherwise an error code.
+ */
+int32_t uartInitialize(USART_TypeDef *uart, uartBR_t baud, \
+		uint8_t *rxBuffer, uint16_t rxBufferSize, \
+		uint8_t *txBuffer, uint16_t txBufferSize);
+//---------------------------------------------------------------------------
+int32_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
+					uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
+				   uint32_t timeout);
+//---------------------------------------------------------------------------
+//===========================================================================
 
 
-#endif /* UART_H_ */
+#endif /* DRIVERS_UART_H_ */

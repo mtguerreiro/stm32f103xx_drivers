@@ -26,7 +26,7 @@
 //===========================================================================
 
 //===========================================================================
-/*------------------------------ Definitions ------------------------------*/
+/*-------------------------------- Defines --------------------------------*/
 //===========================================================================
 
 //===========================================================================
@@ -503,4 +503,43 @@ void USART1_IRQHandler(void){
 	}//else if( usartStatus & USART_SR_TXE )
 }
 #endif
-//-----------------------------
+//---------------------------------------------------------------------------
+#ifdef UARTHL_CONFIG_UART2_ENABLED
+void USART2_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+void USART2_IRQHandler(void){
+
+	uint8_t txData, rxData;
+	uint32_t usartStatus;
+
+	usartStatus = USART2->SR;
+
+	/* Data received */
+	if( usartStatus & USART_SR_RXNE ){
+		rxData = (uint8_t) USART2->DR;
+		cqueueAdd(&uarthlUART2Control.rxQueue, &rxData);
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		xSemaphoreGiveFromISR(uarthlUART2Control.rxSemph, &xHigherPriorityTaskWoken);
+		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
+	} //if( usartStatus & USART_SR_RXNE )
+
+	/* Transmitter ready */
+	else if( usartStatus & USART_SR_TXE ){
+		if( cqueueRemove(&uarthlUART2Control.txQueue, &txData) == 0 ){
+			USART2->DR = (uint16_t)txData;
+#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(uarthlUART2Control.txSemph, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
+		}
+		else{
+			/* Disables TX interrupt if queue is empty */
+			USART2->CR1 &= (uint16_t)(~USART_CR1_TXEIE);
+		}
+	}//else if( usartStatus & USART_SR_TXE )
+}
+#endif
+//---------------------------------------------------------------------------
+//===========================================================================

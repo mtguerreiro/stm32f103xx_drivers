@@ -10,8 +10,14 @@
 //===========================================================================
 #include "onewirehl.h"
 
+/* Device */
+#include "stm32f10x.h"
 
-#include "gpio.h"
+#ifdef OWHL_CONFIG_FREERTOS_EN
+/* Kernel */
+#include "FreeRTOS.h"
+#include "semphr.h"
+#endif
 //===========================================================================
 
 
@@ -34,10 +40,8 @@ typedef enum{
 	OWHL_STATUS_BUSY,
 	OWHL_STATUS_RESET_OK,
 	OWHL_STATUS_RESET_FAIL,
-	OWHL_STATUS_WRITE_OK,
-	OWHL_STATUS_WRITE_FAIL,
-	OWHL_STATUS_READ_OK,
-	OWHL_STATUS_READ_FAIL
+	OWHL_STATUS_WRITE_DONE,
+	OWHL_STATUS_READ_DONE,
 }owhlStatus_t;
 //===========================================================================
 
@@ -45,11 +49,13 @@ typedef enum{
 /*-------------------------------- Structs --------------------------------*/
 //===========================================================================
 typedef struct{
-
 	uint8_t bits;
 	uint8_t byte;
 	owhlStates_t state;
 	owhlStatus_t status;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	SemaphoreHandle_t semaphore;
+#endif
 }owhlControl_t;
 //===========================================================================
 
@@ -67,19 +73,23 @@ owhlControl_t owhlControl = {.bits = 0, .byte = 0,
 /*------------------------------- Prototypes ------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-void onewirehlInitializeTimer(void);
+static void onewirehlInitializeTimer(void);
 //---------------------------------------------------------------------------
-void onewirehlGPIOConfigOD(void);
+#ifdef OWHL_CONFIG_FREERTOS_EN
+static int32_t onewirehlInitializeSW(void);
+#endif
 //---------------------------------------------------------------------------
-void onewirehlGPIOConfigInput(void);
+static void onewirehlGPIOConfigOD(void);
 //---------------------------------------------------------------------------
-void onewirehlGPIOSet(void);
+static void onewirehlGPIOConfigInput(void);
 //---------------------------------------------------------------------------
-void onewirehlGPIOClear(void);
+static void onewirehlGPIOSet(void);
 //---------------------------------------------------------------------------
-uint8_t onewirehlGPIORead(void);
+static void onewirehlGPIOClear(void);
 //---------------------------------------------------------------------------
-void __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(void);
+static uint8_t onewirehlGPIORead(void);
+//---------------------------------------------------------------------------
+static uint32_t __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(uint32_t to);
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -92,6 +102,7 @@ void __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(void);
 #define OWHL_CONFIG_GPIO_OD_CLEAR	onewirehlGPIOClear()
 #define OWHL_CONFIG_GPIO_IN_READ	onewirehlGPIORead()
 
+#define OWHL_CONFIG_SEMAPHORE_TO	1000 / portTICK_PERIOD_MS
 //===========================================================================
 
 //===========================================================================
@@ -102,10 +113,14 @@ int32_t onewirehlInitialize(void){
 
 	onewirehlInitializeTimer();
 
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	if( onewirehlInitializeSW() != 0 ) return 1;
+#endif
+
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t onewirehlReset(void){
+int32_t onewirehlReset(uint32_t to){
 
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_RESET;
@@ -123,15 +138,15 @@ int32_t onewirehlReset(void){
 	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until reset is finished */
-	onewirehlWaitWhileBusy();
+	if( onewirehlWaitWhileBusy(to) != 0 ) return OWHL_ERR_RESET_TO;
 
-	if( owhlControl.status == OWHL_STATUS_RESET_FAIL ) return 1;
+	if( owhlControl.status == OWHL_STATUS_RESET_FAIL ) return OWHL_ERR_RESET_ERR;
 
 	owhlControl.status = OWHL_STATUS_IDLE;
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t onewirehlWrite(uint8_t data){
+int32_t onewirehlWrite(uint8_t data, uint32_t to){
 
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_WRITE;
@@ -156,16 +171,16 @@ int32_t onewirehlWrite(uint8_t data){
 	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until writing is finished */
-	onewirehlWaitWhileBusy();
+	if( onewirehlWaitWhileBusy(to) != 0 ) return OWHL_ERR_WRITE_TO;
 
-	if( owhlControl.status == OWHL_STATUS_WRITE_FAIL ) return 1;
+	if( owhlControl.status != OWHL_STATUS_WRITE_DONE ) return OWHL_ERR_WRITE_ERR;
 
 	owhlControl.status = OWHL_STATUS_IDLE;
 
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t onewirehlRead(uint8_t *data){
+int32_t onewirehlRead(uint8_t *data, uint32_t to){
 
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_READ;
@@ -191,16 +206,15 @@ int32_t onewirehlRead(uint8_t *data){
 	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until writing is finished */
-	onewirehlWaitWhileBusy();
+	if( onewirehlWaitWhileBusy(to) != 0) return OWHL_ERR_READ_TO;
 
-	if( owhlControl.status == OWHL_STATUS_READ_FAIL ) return 1;
+	if( owhlControl.status != OWHL_STATUS_READ_DONE ) return OWHL_ERR_READ_ERR;
 
 	owhlControl.status = OWHL_STATUS_IDLE;
 
 	*data = owhlControl.byte;
 
 	return 0;
-
 }
 //---------------------------------------------------------------------------
 //===========================================================================
@@ -210,7 +224,7 @@ int32_t onewirehlRead(uint8_t *data){
 /*--------------------------- Static functions ----------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-void onewirehlInitializeTimer(void){
+static void onewirehlInitializeTimer(void){
 
 	/* Sets interrupt in NVIC */
 	NVIC_SetPriority(TIM2_IRQn, 6);
@@ -223,30 +237,51 @@ void onewirehlInitializeTimer(void){
 
 }
 //---------------------------------------------------------------------------
-void onewirehlGPIOConfigOD(void){
+#ifdef OWHL_CONFIG_FREERTOS_EN
+static int32_t onewirehlInitializeSW(void){
+
+	owhlControl.semaphore = xSemaphoreCreateBinary();
+
+	if( owhlControl.semaphore == NULL ) return OWHL_ERR_SW_INIT;
+	xSemaphoreTake(owhlControl.semaphore, 0);
+
+	return 0;
+}
+#endif
+//---------------------------------------------------------------------------
+static void onewirehlGPIOConfigOD(void){
 	GPIOB->CRL = (1 << 0) | (1 << 2);
 }
 //---------------------------------------------------------------------------
-void onewirehlGPIOConfigInput(void){
+static void onewirehlGPIOConfigInput(void){
 	GPIOB->CRL = (1 << 2);
 }
 //---------------------------------------------------------------------------
-void onewirehlGPIOSet(void){
+static void onewirehlGPIOSet(void){
 	GPIOB->BSRR = 1;
 }
 //---------------------------------------------------------------------------
-void onewirehlGPIOClear(void){
+static void onewirehlGPIOClear(void){
 	GPIOB->BRR = 1;
 }
 //---------------------------------------------------------------------------
-uint8_t onewirehlGPIORead(void){
+static uint8_t onewirehlGPIORead(void){
 
 	return (uint8_t)(GPIOB->IDR & 1);
 }
 //---------------------------------------------------------------------------
-void onewirehlWaitWhileBusy(void){
-	while( owhlControl.status ==  OWHL_STATUS_BUSY );
+static uint32_t onewirehlWaitWhileBusy(uint32_t to){
+
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	if( xSemaphoreTake(owhlControl.semaphore, to) != pdTRUE) return 1;
+#else
+	while( (owhlControl.status ==  OWHL_STATUS_BUSY) && (to != 0) ) to--;
+	if( to == 0 ) return 1;
+#endif
+
+	return 0;
 }
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -260,9 +295,6 @@ void TIM2_IRQHandler(void){
 
 	status = TIM2->SR;
 	TIM2->SR = 0;
-
-//	gpioOutputSet(GPIOA, GPIO_P6);
-
 
 	if( owhlControl.state == OWHL_STATE_RESET ){
 		/* Releases the line and sets it as input*/
@@ -294,6 +326,11 @@ void TIM2_IRQHandler(void){
 			/* Timed-out without response from sensor */
 			owhlControl.state = OWHL_STATE_IDLE;
 			owhlControl.status = OWHL_STATUS_RESET_FAIL;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(owhlControl.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		} // else if( status & TIM_SR_UIF )
 	} // else if( owhlControl.state == OWHL_STATE_RESET_WAITING_CLEAR )
 
@@ -306,6 +343,11 @@ void TIM2_IRQHandler(void){
 				TIM2->CR1 &= (uint16_t)(~TIM_CR1_CEN);
 				/* Clears counter so next cmd can assume counter is zero */
 				TIM2->CNT = 0;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xSemaphoreGiveFromISR(owhlControl.semaphore, &xHigherPriorityTaskWoken);
+				if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 			}
 			else{
 				/* Still waiting for response */
@@ -316,6 +358,11 @@ void TIM2_IRQHandler(void){
 			/* Timed-out and line was not released */
 			owhlControl.state = OWHL_STATE_IDLE;
 			owhlControl.status = OWHL_STATUS_RESET_FAIL;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(owhlControl.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		} // else if( status & TIM_SR_UIF )
 	} // else if( owhlControl.state == OWHL_STATE_RESET_WAITING_SET )
 
@@ -340,7 +387,12 @@ void TIM2_IRQHandler(void){
 		if( owhlControl.bits == 8 ){
 			/* Wrote all bits */
 			owhlControl.state = OWHL_STATE_IDLE;
-			owhlControl.status = OWHL_STATUS_WRITE_OK;
+			owhlControl.status = OWHL_STATUS_WRITE_DONE;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(owhlControl.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		else{
 			/* Writes next bit */
@@ -379,7 +431,12 @@ void TIM2_IRQHandler(void){
 		if( owhlControl.bits == 8 ){
 			/* Read all bits */
 			owhlControl.state = OWHL_STATE_IDLE;
-			owhlControl.status = OWHL_STATUS_READ_OK;
+			owhlControl.status = OWHL_STATUS_READ_DONE;
+#ifdef OWHL_CONFIG_FREERTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(owhlControl.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		else{
 			/* Reads next bit */
@@ -392,8 +449,6 @@ void TIM2_IRQHandler(void){
 		}
 
 	} // else if( owhlControl.state == OWHL_STATE_READ_RECOVER )
-
-//	gpioOutputReset(GPIOA, GPIO_P6);
 }
 //---------------------------------------------------------------------------
 //===========================================================================

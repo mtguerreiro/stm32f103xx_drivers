@@ -25,6 +25,8 @@ typedef enum{
 	OWHL_STATE_RESET_WAITING_SET,
 	OWHL_STATE_WRITE,
 	OWHL_STATE_WRITE_RECOVER,
+	OWHL_STATE_READ,
+	OWHL_STATE_READ_RECOVER,
 }owhlStates_t;
 
 typedef enum{
@@ -34,6 +36,8 @@ typedef enum{
 	OWHL_STATUS_RESET_FAIL,
 	OWHL_STATUS_WRITE_OK,
 	OWHL_STATUS_WRITE_FAIL,
+	OWHL_STATUS_READ_OK,
+	OWHL_STATUS_READ_FAIL
 }owhlStatus_t;
 //===========================================================================
 
@@ -161,6 +165,44 @@ int32_t onewirehlWrite(uint8_t data){
 	return 0;
 }
 //---------------------------------------------------------------------------
+int32_t onewirehlRead(uint8_t *data){
+
+	/* Sets state/status */
+	owhlControl.state = OWHL_STATE_READ;
+	owhlControl.status = OWHL_STATUS_BUSY;
+	owhlControl.byte = 0;
+	owhlControl.bits = 0;
+
+	/*
+	 * Sets timer to generate a ~60 us delay for the read time slot. Also
+	 * sets the CCR1 to generate a ~1 us delay, required to start the reading
+	 * process, and sets CCR2 to generate a ~13 us delay, to sample the line.
+	 */
+	TIM2->DIER = TIM_DIER_UIE | TIM_DIER_CC1IE | TIM_DIER_CC2IE;
+	TIM2->ARR = 4320 - 1;
+	TIM2->CCR1 = 72 - 1;
+	TIM2->CCR2 = 936 - 1;
+
+	/* Write 0 to the line and waits */
+	OWHL_CONFIG_GPIO_CONFIG_OD;
+	OWHL_CONFIG_GPIO_OD_CLEAR;
+
+	/* Runs timer */
+	TIM2->CR1 |= TIM_CR1_CEN;
+
+	/* Wait until writing is finished */
+	onewirehlWaitWhileBusy();
+
+	if( owhlControl.status == OWHL_STATUS_READ_FAIL ) return 1;
+
+	owhlControl.status = OWHL_STATUS_IDLE;
+
+	*data = owhlControl.byte;
+
+	return 0;
+
+}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 
@@ -218,6 +260,9 @@ void TIM2_IRQHandler(void){
 
 	status = TIM2->SR;
 	TIM2->SR = 0;
+
+	gpioOutputSet(GPIOA, GPIO_P6);
+
 
 	if( owhlControl.state == OWHL_STATE_RESET ){
 		/* Releases the line and sets it as input*/
@@ -308,6 +353,47 @@ void TIM2_IRQHandler(void){
 		}
 	} // else if( owhlControl.state == OWHL_STATE_WRITE )
 
+	else if( owhlControl.state == OWHL_STATE_READ ){
+		if( status & TIM_SR_CC1IF ){
+			/* Releases the line and sets it as input */
+			OWHL_CONFIG_GPIO_OD_SET;
+			OWHL_CONFIG_GPIO_CONFIG_IN;
+		}
+		else if( status & TIM_SR_CC2IF ){
+			/* Samples the line */
+			owhlControl.byte |= (uint8_t)(OWHL_CONFIG_GPIO_IN_READ << 7);
+		}
+		else if( status & TIM_SR_UIF ){
+			/* Bit read, recover for ~1 us */
+			OWHL_CONFIG_GPIO_CONFIG_OD;
+			OWHL_CONFIG_GPIO_OD_SET;
+			owhlControl.state = OWHL_STATE_READ_RECOVER;
+			TIM2->ARR = 72 - 1;
+			TIM2->DIER = TIM_DIER_UIE;
+			TIM2->CR1 |= TIM_CR1_CEN;
+		}
+	} // else if( owhlControl.state == OWHL_STATE_READ
+
+	else if( owhlControl.state == OWHL_STATE_READ_RECOVER ){
+		owhlControl.bits++;
+		if( owhlControl.bits == 8 ){
+			/* Read all bits */
+			owhlControl.state = OWHL_STATE_IDLE;
+			owhlControl.status = OWHL_STATUS_READ_OK;
+		}
+		else{
+			/* Reads next bit */
+			owhlControl.state = OWHL_STATE_READ;
+			owhlControl.byte = (uint8_t)(owhlControl.byte >> 1);
+			TIM2->DIER = TIM_DIER_UIE | TIM_DIER_CC1IE | TIM_DIER_CC2IE;
+			TIM2->ARR = 4320 - 1;
+			OWHL_CONFIG_GPIO_OD_CLEAR;
+			TIM2->CR1 |= TIM_CR1_CEN;
+		}
+
+	} // else if( owhlControl.state == OWHL_STATE_READ_RECOVER )
+
+	gpioOutputReset(GPIOA, GPIO_P6);
 }
 //---------------------------------------------------------------------------
 //===========================================================================

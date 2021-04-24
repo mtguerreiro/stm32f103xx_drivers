@@ -20,16 +20,20 @@
 //===========================================================================
 typedef enum{
 	OWHL_STATE_IDLE,
-	OWHL_STATE_RESET_INIT,
+	OWHL_STATE_RESET,
 	OWHL_STATE_RESET_WAITING_CLEAR,
 	OWHL_STATE_RESET_WAITING_SET,
+	OWHL_STATE_WRITE,
+	OWHL_STATE_WRITE_RECOVER,
 }owhlStates_t;
 
 typedef enum{
-	OWHL_STATUS_FREE,
+	OWHL_STATUS_IDLE,
 	OWHL_STATUS_BUSY,
 	OWHL_STATUS_RESET_OK,
-	OWHL_STATUS_RESET_FAIL
+	OWHL_STATUS_RESET_FAIL,
+	OWHL_STATUS_WRITE_OK,
+	OWHL_STATUS_WRITE_FAIL,
 }owhlStatus_t;
 //===========================================================================
 
@@ -40,8 +44,8 @@ typedef struct{
 
 	uint8_t bits;
 	uint8_t byte;
-	uint8_t state;
-	uint8_t status;
+	owhlStates_t state;
+	owhlStatus_t status;
 }owhlControl_t;
 //===========================================================================
 
@@ -50,7 +54,9 @@ typedef struct{
 /*-------------------------------- Globals --------------------------------*/
 //===========================================================================
 owhlControl_t owhlControl = {.bits = 0, .byte = 0,
-		.status = OWHL_STATUS_FREE, .state = OWHL_STATE_IDLE};
+		.status = OWHL_STATUS_IDLE, .state = OWHL_STATE_IDLE};
+//volatile owhlControl_t owhlControl = {.bits = 0, .byte = 0,
+//		.status = OWHL_STATUS_IDLE, .state = OWHL_STATE_IDLE};
 //===========================================================================
 
 //===========================================================================
@@ -68,6 +74,8 @@ void onewirehlGPIOSet(void);
 void onewirehlGPIOClear(void);
 //---------------------------------------------------------------------------
 uint8_t onewirehlGPIORead(void);
+//---------------------------------------------------------------------------
+void __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(void);
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -96,10 +104,11 @@ int32_t onewirehlInitialize(void){
 int32_t onewirehlReset(void){
 
 	/* Sets state/status */
-	owhlControl.state = OWHL_STATE_RESET_INIT;
+	owhlControl.state = OWHL_STATE_RESET;
 	owhlControl.status = OWHL_STATUS_BUSY;
 
 	/* Sets timer to generate a ~800 us delay */
+	TIM2->DIER = TIM_DIER_UIE;
 	TIM2->ARR = 0xFFFF;
 
 	/* Write 0 to the line and waits */
@@ -107,13 +116,48 @@ int32_t onewirehlReset(void){
 	OWHL_CONFIG_GPIO_OD_CLEAR;
 
 	/* Runs timer */
+	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until reset is finished */
-	while( owhlControl.status ==  OWHL_STATUS_BUSY );
+	onewirehlWaitWhileBusy();
 
 	if( owhlControl.status == OWHL_STATUS_RESET_FAIL ) return 1;
 
-	owhlControl.status = OWHL_STATUS_FREE;
+	owhlControl.status = OWHL_STATUS_IDLE;
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t onewirehlWrite(uint8_t data){
+
+	/* Sets state/status */
+	owhlControl.state = OWHL_STATE_WRITE;
+	owhlControl.status = OWHL_STATUS_BUSY;
+	owhlControl.byte = data;
+	owhlControl.bits = 0;
+
+	/*
+	 * Sets timer to generate a ~60 us delay for the write time slot. Also
+	 * sets the CCR1 to generate a ~1us delay, required to start the writing
+	 * process.
+	 */
+	TIM2->DIER = TIM_DIER_UIE | TIM_DIER_CC1IE;
+	TIM2->ARR = 4320 - 1;
+	TIM2->CCR1 = 72 - 1;
+
+	/* Write 0 to the line and waits */
+	OWHL_CONFIG_GPIO_CONFIG_OD;
+	OWHL_CONFIG_GPIO_OD_CLEAR;
+
+	/* Runs timer */
+	TIM2->CR1 |= TIM_CR1_CEN;
+
+	/* Wait until writing is finished */
+	onewirehlWaitWhileBusy();
+
+	if( owhlControl.status == OWHL_STATUS_WRITE_FAIL ) return 1;
+
+	owhlControl.status = OWHL_STATUS_IDLE;
+
 	return 0;
 }
 //---------------------------------------------------------------------------
@@ -158,6 +202,9 @@ uint8_t onewirehlGPIORead(void){
 	return (uint8_t)(GPIOB->IDR & 1);
 }
 //---------------------------------------------------------------------------
+void onewirehlWaitWhileBusy(void){
+	while( owhlControl.status ==  OWHL_STATUS_BUSY );
+}
 //===========================================================================
 
 //===========================================================================
@@ -169,12 +216,10 @@ void TIM2_IRQHandler(void){
 
 	uint32_t status;
 
-	gpioOutputSet(GPIOA, GPIO_P6);
-
 	status = TIM2->SR;
 	TIM2->SR = 0;
 
-	if( owhlControl.state == OWHL_STATE_RESET_INIT ){
+	if( owhlControl.state == OWHL_STATE_RESET ){
 		/* Releases the line and sets it as input*/
 		OWHL_CONFIG_GPIO_OD_SET;
 		OWHL_CONFIG_GPIO_CONFIG_IN;
@@ -185,7 +230,7 @@ void TIM2_IRQHandler(void){
 		TIM2->CCR1 = 720;
 		TIM2->DIER = TIM_DIER_UIE | TIM_DIER_CC1IE;
 		TIM2->CR1 |= TIM_CR1_CEN;
-	} // if( owhlControl.state == OWHL_STATE_RESET_INIT )
+	} // if( owhlControl.state == OWHL_STATE_RESET )
 
 	else if( owhlControl.state == OWHL_STATE_RESET_WAITING_CLEAR ){
 		if( status & TIM_SR_CC1IF ){
@@ -197,7 +242,7 @@ void TIM2_IRQHandler(void){
 			}
 			else{
 				/* Still waiting for response */
-				TIM2->CCR1 = (uint16_t)(TIM2->CCR1 + 720U);
+				TIM2->CCR1 = (uint16_t)(TIM2->CNT + 720U);
 			}
 		} // if( status & TIM_SR_CC1IF )
 		else if( status & TIM_SR_UIF ){
@@ -211,13 +256,15 @@ void TIM2_IRQHandler(void){
 		if( status & TIM_SR_CC1IF ){
 			if( OWHL_CONFIG_GPIO_IN_READ == 1 ){
 				/* Sensor released the line, reset is successful */
-				TIM2->CNT = 0;
 				owhlControl.state = OWHL_STATE_IDLE;
 				owhlControl.status = OWHL_STATUS_RESET_OK;
+				TIM2->CR1 &= (uint16_t)(~TIM_CR1_CEN);
+				/* Clears counter so next cmd can assume counter is zero */
+				TIM2->CNT = 0;
 			}
 			else{
 				/* Still waiting for response */
-				TIM2->CCR1 = (uint16_t)(TIM2->CCR1 + 720U);
+				TIM2->CCR1 = (uint16_t)(TIM2->CNT + 720U);
 			}
 		} // if( status & TIM_SR_CC1IF )
 		else if( status & TIM_SR_UIF ){
@@ -227,8 +274,40 @@ void TIM2_IRQHandler(void){
 		} // else if( status & TIM_SR_UIF )
 	} // else if( owhlControl.state == OWHL_STATE_RESET_WAITING_SET )
 
+	else if( owhlControl.state == OWHL_STATE_WRITE ){
+		if( status & TIM_SR_CC1IF ){
+			/* Releases or clears the line according to the next bit */
+			if( owhlControl.byte & 1 ) OWHL_CONFIG_GPIO_OD_SET;
+			else OWHL_CONFIG_GPIO_OD_CLEAR;
+		}
+		else if( status & TIM_SR_UIF ){
+			/* Bit written, recover for ~1 us */
+			OWHL_CONFIG_GPIO_OD_SET;
+			owhlControl.state = OWHL_STATE_WRITE_RECOVER;
+			TIM2->ARR = 72 - 1;
+			TIM2->DIER = TIM_DIER_UIE;
+			TIM2->CR1 |= TIM_CR1_CEN;
+		}
+	} // else if( owhlControl.state == OWHL_STATE_WRITE )
 
-	gpioOutputReset(GPIOA, GPIO_P6);
+	else if( owhlControl.state == OWHL_STATE_WRITE_RECOVER ){
+		owhlControl.bits++;
+		if( owhlControl.bits == 8 ){
+			/* Wrote all bits */
+			owhlControl.state = OWHL_STATE_IDLE;
+			owhlControl.status = OWHL_STATUS_WRITE_OK;
+		}
+		else{
+			/* Writes next bit */
+			owhlControl.state = OWHL_STATE_WRITE;
+			owhlControl.byte = owhlControl.byte >> 1;
+			TIM2->DIER = TIM_DIER_UIE | TIM_DIER_CC1IE;
+			TIM2->ARR = 4320 - 1;
+			OWHL_CONFIG_GPIO_OD_CLEAR;
+			TIM2->CR1 |= TIM_CR1_CEN;
+		}
+	} // else if( owhlControl.state == OWHL_STATE_WRITE )
+
 }
 //---------------------------------------------------------------------------
 //===========================================================================

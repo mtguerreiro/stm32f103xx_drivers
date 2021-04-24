@@ -261,7 +261,7 @@ void TIM2_IRQHandler(void){
 	status = TIM2->SR;
 	TIM2->SR = 0;
 
-	gpioOutputSet(GPIOA, GPIO_P6);
+//	gpioOutputSet(GPIOA, GPIO_P6);
 
 
 	if( owhlControl.state == OWHL_STATE_RESET ){
@@ -393,7 +393,7 @@ void TIM2_IRQHandler(void){
 
 	} // else if( owhlControl.state == OWHL_STATE_READ_RECOVER )
 
-	gpioOutputReset(GPIOA, GPIO_P6);
+//	gpioOutputReset(GPIOA, GPIO_P6);
 }
 //---------------------------------------------------------------------------
 //===========================================================================

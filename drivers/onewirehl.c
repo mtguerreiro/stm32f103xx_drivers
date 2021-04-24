@@ -447,7 +447,6 @@ void TIM2_IRQHandler(void){
 			OWHL_CONFIG_GPIO_OD_CLEAR;
 			TIM2->CR1 |= TIM_CR1_CEN;
 		}
-
 	} // else if( owhlControl.state == OWHL_STATE_READ_RECOVER )
 }
 //---------------------------------------------------------------------------

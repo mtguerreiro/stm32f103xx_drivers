@@ -10,8 +10,9 @@
 //===========================================================================
 #include "onewirehl.h"
 
-/* Device */
+/* Device and drivers */
 #include "stm32f10x.h"
+#include "gpio.h"
 
 #ifdef OWHL_CONFIG_FREERTOS_EN
 /* Kernel */
@@ -79,6 +80,8 @@ static void onewirehlInitializeTimer(void);
 static int32_t onewirehlInitializeSW(void);
 #endif
 //---------------------------------------------------------------------------
+static void onewirehlGPIOConfigInit(void);
+//---------------------------------------------------------------------------
 static void onewirehlGPIOConfigOD(void);
 //---------------------------------------------------------------------------
 static void onewirehlGPIOConfigInput(void);
@@ -96,6 +99,7 @@ static int32_t __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(uint32_t t
 //===========================================================================
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
+#define OWHL_CONFIG_GPIO_INIT		onewirehlGPIOConfigInit()
 #define OWHL_CONFIG_GPIO_CONFIG_OD	onewirehlGPIOConfigOD()
 #define OWHL_CONFIG_GPIO_CONFIG_IN	onewirehlGPIOConfigInput()
 #define OWHL_CONFIG_GPIO_OD_SET		onewirehlGPIOSet()
@@ -110,6 +114,8 @@ static int32_t __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(uint32_t t
 //===========================================================================
 //---------------------------------------------------------------------------
 int32_t onewirehlInitialize(void){
+
+	OWHL_CONFIG_GPIO_INIT;
 
 	onewirehlInitializeTimer();
 
@@ -282,6 +288,12 @@ static int32_t onewirehlInitializeSW(void){
 	return 0;
 }
 #endif
+//---------------------------------------------------------------------------
+static void onewirehlGPIOConfigInit(void){
+
+	gpioPortEnable(GPIOB);
+	gpioConfig(GPIOB, GPIO_P0, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOAT);
+}
 //---------------------------------------------------------------------------
 static void onewirehlGPIOConfigOD(void){
 	GPIOB->CRL = (1 << 0) | (1 << 2);

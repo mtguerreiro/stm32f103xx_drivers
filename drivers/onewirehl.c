@@ -89,7 +89,7 @@ static void onewirehlGPIOClear(void);
 //---------------------------------------------------------------------------
 static uint8_t onewirehlGPIORead(void);
 //---------------------------------------------------------------------------
-static uint32_t __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(uint32_t to);
+static int32_t __attribute__((optimize("O0"))) onewirehlWaitWhileBusy(uint32_t to);
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -122,9 +122,19 @@ int32_t onewirehlInitialize(void){
 //---------------------------------------------------------------------------
 int32_t onewirehlReset(uint32_t to){
 
+	int32_t ret;
+
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_RESET;
 	owhlControl.status = OWHL_STATUS_BUSY;
+
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	/*
+	 * Takes the semaphore so we can assume that we can only take it if the
+	 * IRQ released it.
+	 */
+	xSemaphoreTake(owhlControl.semaphore, 0);
+#endif
 
 	/* Sets timer to generate a ~800 us delay */
 	TIM2->DIER = TIM_DIER_UIE;
@@ -138,21 +148,33 @@ int32_t onewirehlReset(uint32_t to){
 	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until reset is finished */
-	if( onewirehlWaitWhileBusy(to) != 0 ) return OWHL_ERR_RESET_TO;
+	ret =  onewirehlWaitWhileBusy(to);
+	owhlControl.state = OWHL_STATE_IDLE;
+
+	if( ret != 0 ) return OWHL_ERR_RESET_TO;
 
 	if( owhlControl.status == OWHL_STATUS_RESET_FAIL ) return OWHL_ERR_RESET_ERR;
 
-	owhlControl.status = OWHL_STATUS_IDLE;
 	return 0;
 }
 //---------------------------------------------------------------------------
 int32_t onewirehlWrite(uint8_t data, uint32_t to){
+
+	int32_t ret;
 
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_WRITE;
 	owhlControl.status = OWHL_STATUS_BUSY;
 	owhlControl.byte = data;
 	owhlControl.bits = 0;
+
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	/*
+	 * Takes the semaphore so we can assume that we can only take it if the
+	 * IRQ released it.
+	 */
+	xSemaphoreTake(owhlControl.semaphore, 0);
+#endif
 
 	/*
 	 * Sets timer to generate a ~60 us delay for the write time slot. Also
@@ -171,22 +193,33 @@ int32_t onewirehlWrite(uint8_t data, uint32_t to){
 	TIM2->CR1 |= TIM_CR1_CEN;
 
 	/* Wait until writing is finished */
-	if( onewirehlWaitWhileBusy(to) != 0 ) return OWHL_ERR_WRITE_TO;
+	ret =  onewirehlWaitWhileBusy(to);
+	owhlControl.state = OWHL_STATE_IDLE;
+
+	if( ret != 0 ) return OWHL_ERR_WRITE_TO;
 
 	if( owhlControl.status != OWHL_STATUS_WRITE_DONE ) return OWHL_ERR_WRITE_ERR;
-
-	owhlControl.status = OWHL_STATUS_IDLE;
 
 	return 0;
 }
 //---------------------------------------------------------------------------
 int32_t onewirehlRead(uint8_t *data, uint32_t to){
 
+	int32_t ret;
+
 	/* Sets state/status */
 	owhlControl.state = OWHL_STATE_READ;
 	owhlControl.status = OWHL_STATUS_BUSY;
 	owhlControl.byte = 0;
 	owhlControl.bits = 0;
+
+#ifdef OWHL_CONFIG_FREERTOS_EN
+	/*
+	 * Takes the semaphore so we can assume that we can only take it if the
+	 * IRQ released it.
+	 */
+	xSemaphoreTake(owhlControl.semaphore, 0);
+#endif
 
 	/*
 	 * Sets timer to generate a ~60 us delay for the read time slot. Also
@@ -205,12 +238,13 @@ int32_t onewirehlRead(uint8_t *data, uint32_t to){
 	/* Runs timer */
 	TIM2->CR1 |= TIM_CR1_CEN;
 
-	/* Wait until writing is finished */
-	if( onewirehlWaitWhileBusy(to) != 0) return OWHL_ERR_READ_TO;
+	/* Wait until reading is finished */
+	ret =  onewirehlWaitWhileBusy(to);
+	owhlControl.state = OWHL_STATE_IDLE;
+
+	if( ret != 0 ) return OWHL_ERR_READ_TO;
 
 	if( owhlControl.status != OWHL_STATUS_READ_DONE ) return OWHL_ERR_READ_ERR;
-
-	owhlControl.status = OWHL_STATUS_IDLE;
 
 	*data = owhlControl.byte;
 
@@ -270,7 +304,7 @@ static uint8_t onewirehlGPIORead(void){
 	return (uint8_t)(GPIOB->IDR & 1);
 }
 //---------------------------------------------------------------------------
-static uint32_t onewirehlWaitWhileBusy(uint32_t to){
+static int32_t onewirehlWaitWhileBusy(uint32_t to){
 
 #ifdef OWHL_CONFIG_FREERTOS_EN
 	if( xSemaphoreTake(owhlControl.semaphore, to) != pdTRUE) return 1;

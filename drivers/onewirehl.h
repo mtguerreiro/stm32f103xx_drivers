@@ -1,5 +1,10 @@
 /*
- * onewirehl.h
+ * @file onewirehl.h
+ * @brief Provides a simple bare metal 1-wire driver for STM32F103 devices.
+ *
+ * You can specify which GPIO pin you want to use, but this driver also
+ * requires one timer. Currently, this library uses TIM2, which is hard
+ * coded.
  *
  *  Created on: 23 de abr de 2021
  *      Author: marco
@@ -12,7 +17,6 @@
 /*------------------------------- Includes --------------------------------*/
 //===========================================================================
 #include <stdint.h>
-
 
 //===========================================================================
 
@@ -46,8 +50,5 @@ int32_t onewirehlWrite(uint8_t data, uint32_t to);
 int32_t onewirehlRead(uint8_t *data, uint32_t to);
 //---------------------------------------------------------------------------
 //===========================================================================
-
-
-
 
 #endif /* DRIVERS_ONEWIREHL_H_ */

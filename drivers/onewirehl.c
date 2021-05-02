@@ -12,7 +12,6 @@
 
 /* Device and drivers */
 #include "stm32f10x.h"
-#include "gpio.h"
 
 #if (OWHL_CONFIG_FREERTOS_EN == 1)
 /* Kernel */

@@ -20,9 +20,9 @@
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t onewireInitialize(void){
+int32_t onewireInitialize(void *gpio, uint8_t pin){
 
-	if( onewirehlInitialize() != 0 ) return 1;
+	if( onewirehlInitialize(gpio, pin) != 0 ) return 1;
 
 	return 0;
 }

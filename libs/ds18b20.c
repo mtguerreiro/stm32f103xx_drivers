@@ -20,6 +20,12 @@
 //---------------------------------------------------------------------------
 static uint8_t ds18b20crc8(uint8_t *data, uint16_t len);
 //---------------------------------------------------------------------------
+static int32_t ds18b20ReadSP(uint8_t *buffer, uint32_t to);
+//---------------------------------------------------------------------------
+static int32_t ds18b20WriteSP(uint8_t *buffer, uint32_t to);
+//---------------------------------------------------------------------------
+static int32_t ds18b20SkipROM(uint32_t to);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -42,18 +48,6 @@ static uint8_t ds18b20crc8(uint8_t *data, uint16_t len);
 #define DS18B20_CMD_CONVERT_T		0x44	/** Initiate temperature conversion command. */
 
 //===========================================================================
-
-//===========================================================================
-/*--------------------------------- Enums ---------------------------------*/
-//===========================================================================
-typedef enum{
-	DS12B20_TEMP_RES_9 = 0,
-	DS12B20_TEMP_RES_10,
-	DS12B20_TEMP_RES_11,
-	DS12B20_TEMP_RES_12
-}ds18b20TempRes_t;
-//===========================================================================
-
 
 //===========================================================================
 /*------------------------------- Functions -------------------------------*/
@@ -87,7 +81,126 @@ int32_t ds18b20ReadROM(uint8_t *buffer, uint32_t to){
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t ds18b20WriteSP(uint8_t *buffer, uint32_t to){
+int32_t ds18b20SetTempRes(uint8_t res, uint32_t to){
+
+	int32_t ret;
+	uint8_t cmd[3];
+
+	cmd[0] = 0;
+	cmd[1] = 0;
+	cmd[2] = (uint8_t)( ((res & 3U) << 5) | 0x1FU);
+
+	ret = ds18b20WriteSP(cmd, to);
+	if( ret != 0 ) return ret;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds18b20StartConversion(uint32_t to){
+
+	uint8_t cmd;
+	int32_t ret;
+
+	ret = ds18b20SkipROM(to);
+	if( ret != 0 ) return ret;
+
+	cmd = DS18B20_CMD_CONVERT_T;
+	ret = onewireWrite(&cmd, 1, to);
+	if( ret != 0 ) return DS18B20_ERR_WRITE;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds18b20ReadTemp(uint8_t *dez, uint16_t *dec, uint32_t to){
+
+	int32_t ret;
+	uint8_t buffer[9];
+	uint8_t tempDez;
+	uint16_t tempDec;
+
+	ret = ds18b20ReadSP(buffer, to);
+	if( ret != 0 ) return ret;
+
+	/*
+	 * The integer part of the temperature is:
+	 * 	tempInt = (LSB_B1 << 4) | (MSB_B0 >> 4),
+	 * where MSB_B0 are the 4 most significant bits of byte 0, and LSB_B1
+	 * are the 4 least significant bits of byte 1.
+	 */
+	tempDez = (uint8_t)((buffer[0] & 0xF0U) >> 4U) | ((buffer[1] & 0x0FU) << 4U);
+
+	/*
+	 * The decimal part of the temperature is:
+	 * 	((2**3 + 2**2 + 2**1 + 2**0) << 6) - (12 + 6 + 3 + 1.5),
+	 * where 2**3 is the 4th bit of byte 0, 2**2 is the second bit of byte 0
+	 * and so on. For each bit, we have to subtract 12, 6, 3 or 2, if that
+	 * bit is 1.
+	 */
+	tempDec = 0;
+	if( buffer[0] & 0x08 ) tempDec = (0x08 << 6) - 12;
+	if( buffer[0] & 0x04 ) tempDec = (uint16_t)( tempDec + ((0x04 << 6) - 6) );
+	if( buffer[0] & 0x02 ) tempDec = (uint16_t)( tempDec + ((0x02 << 6) - 3) );
+	if( buffer[0] & 0x01 ) tempDec = (uint16_t)( tempDec + ((0x01 << 6) - 1) );
+
+//	neg = 12;
+//	tempDec = 0;
+//	for(k = 0; k < 4; k++){
+//		bit = (uint16_t)(buffer[0] & (1 << (3 - k)));
+//		if( bit ){
+//			tempDec = (bit << 6) - neg;
+//		}
+//		neg = neg >> 1;
+//	}
+
+	*dez = tempDez;
+	*dec = tempDec;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+//===========================================================================
+
+//===========================================================================
+/*--------------------------- Static functions ----------------------------*/
+//===========================================================================
+//---------------------------------------------------------------------------
+static int32_t ds18b20SkipROM(uint32_t to){
+
+	int32_t ret;
+	uint8_t cmd;
+
+	ret = onewireReset(to);
+	if( ret != 0 ) return DS18B20_ERR_RESET;
+
+	cmd = DS18B20_CMD_SKIP_ROM;
+	ret = onewireWrite(&cmd, 1, to);
+	if( ret != 0 ) return DS18B20_ERR_WRITE;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+static int32_t ds18b20ReadSP(uint8_t *buffer, uint32_t to){
+
+	int32_t ret;
+	uint8_t cmd;
+
+	ret = ds18b20SkipROM(to);
+	if( ret != 0 ) return ret;
+
+	cmd = DS18B20_CMD_READ_SP;
+	ret = onewireWrite(&cmd, 1, to);
+	if( ret != 0 ) return DS18B20_ERR_WRITE;
+
+	ret = onewireRead(buffer, DS18B20_CMD_READ_SP_SIZE, to);
+	if( ret != 0 ) return DS18B20_ERR_READ;
+
+	ret = ds18b20crc8(buffer, DS18B20_CMD_READ_SP_SIZE);
+	if( ret != 0 ) return DS18B20_ERR_READ_CRC;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+static int32_t ds18b20WriteSP(uint8_t *buffer, uint32_t to){
 
 	int32_t ret;
 	uint8_t cmd[4];
@@ -116,96 +229,6 @@ int32_t ds18b20WriteSP(uint8_t *buffer, uint32_t to){
 
 	return 0;
 }
-//---------------------------------------------------------------------------
-int32_t ds18b20ReadTemp(uint16_t *dez, uint16_t *dec, uint32_t to){
-
-	int32_t ret;
-	uint8_t cmd;
-	uint8_t rbuffer[9];
-	uint16_t temp;
-	uint16_t aux;
-	uint8_t bit;
-	uint8_t k;
-
-	ret = ds18b20SkipROM(to);
-	if( ret != 0 ) return ret;
-
-	cmd = DS18B20_CMD_CONVERT_T;
-	ret = onewireWrite(&cmd, 1, to);
-	if( ret != 0 ) return DS18B20_ERR_WRITE;
-
-	ret = 0;
-	while(1){
-		ret = onewireRead(&cmd, 1, to);
-		if( ret != 0 ) break;
-		if( cmd == 0xFF ) break;
-	}
-
-	if( ret != 0 ) return DS18B20_ERR_READ;
-
-	ret = ds18b20ReadSP(rbuffer, to);
-	if( ret != 0 ) return ret;
-
-	temp = (uint16_t)((rbuffer[1] << 8) | rbuffer[0]);
-	*dez = (uint16_t)( temp >> 4);
-
-	*dec = 0;
-	for(k = 0; k < 4; k++){
-		bit = 1 << k;
-		if( (temp & (bit)) ){
-			aux = ( 0xFF - (bit << (k + 2)) ) >> 4;
-			*dec |= aux;
-		}
-	}
-
-
-//	*p++ = rbuffer[0];
-//	*p++ = rbuffer[1];
-
-	return 0;
-}
-//---------------------------------------------------------------------------
-int32_t ds18b20ReadSP(uint8_t *buffer, uint32_t to){
-
-	int32_t ret;
-	uint8_t cmd;
-
-	ret = ds18b20SkipROM(to);
-	if( ret != 0 ) return ret;
-
-	cmd = DS18B20_CMD_READ_SP;
-	ret = onewireWrite(&cmd, 1, to);
-	if( ret != 0 ) return DS18B20_ERR_WRITE;
-
-	ret = onewireRead(buffer, DS18B20_CMD_READ_SP_SIZE, to);
-	if( ret != 0 ) return DS18B20_ERR_READ;
-
-	ret = ds18b20crc8(buffer, DS18B20_CMD_READ_SP_SIZE);
-	if( ret != 0 ) return DS18B20_ERR_READ_CRC;
-
-	return 0;
-}
-//---------------------------------------------------------------------------
-int32_t ds18b20SkipROM(uint32_t to){
-
-	int32_t ret;
-	uint8_t cmd;
-
-	ret = onewireReset(to);
-	if( ret != 0 ) return DS18B20_ERR_RESET;
-
-	cmd = DS18B20_CMD_SKIP_ROM;
-	ret = onewireWrite(&cmd, 1, to);
-	if( ret != 0 ) return DS18B20_ERR_WRITE;
-
-	return 0;
-}
-//---------------------------------------------------------------------------
-//===========================================================================
-
-//===========================================================================
-/*--------------------------- Static functions ----------------------------*/
-//===========================================================================
 //---------------------------------------------------------------------------
 static uint8_t ds18b20crc8(uint8_t *data, uint16_t len){
 

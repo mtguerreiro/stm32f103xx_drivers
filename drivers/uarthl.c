@@ -19,9 +19,7 @@
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
 /* Kernel */
 #include "FreeRTOS.h"
-#include "event_groups.h"
 #include "semphr.h"
-#include "queue.h"
 #endif
 //===========================================================================
 
@@ -60,7 +58,7 @@ typedef struct{
  * @result 0 if hardware was initialized successfully, otherwise an error
  *         code.
  */
-int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
+static int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
 //---------------------------------------------------------------------------
 /**
  * @brief Initializes software for the specified UART.
@@ -76,7 +74,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
  * @result 0 if software was initialized successfully, otherwise an error
  *         code.
  */
-int32_t uarthlInitializeSW(USART_TypeDef *uart,\
+static int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize);
 //---------------------------------------------------------------------------
@@ -86,10 +84,10 @@ int32_t uarthlInitializeSW(USART_TypeDef *uart,\
  * @param uart UART.
  * @result Pointer to structure or 0 if structure was not found.
  */
-uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
+static uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
 //---------------------------------------------------------------------------
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+static int32_t uartInitializeSWSemph(USART_TypeDef *uart,
 		uarthlControl_t* uartControl);
 #endif
 //---------------------------------------------------------------------------
@@ -224,7 +222,7 @@ int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 /*--------------------------- Static functions ----------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
+static int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 
 	uint32_t _uart = (uint32_t)uart;
 	GPIO_TypeDef *portTX = 0;
@@ -352,7 +350,7 @@ int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t uarthlInitializeSW(USART_TypeDef *uart,\
+static int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize){
 
@@ -373,7 +371,7 @@ int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 	return 0;
 }
 //---------------------------------------------------------------------------
-uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
+static uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
 
 	uint32_t _uart = (uint32_t)uart;
 	uarthlControl_t *uartControl = 0;
@@ -411,7 +409,7 @@ uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
 }
 //---------------------------------------------------------------------------
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+static int32_t uartInitializeSWSemph(USART_TypeDef *uart,
 		uarthlControl_t* uartControl){
 
 	uint32_t _uart = (uint32_t)uart;

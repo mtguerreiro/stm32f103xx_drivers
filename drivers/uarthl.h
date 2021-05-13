@@ -18,6 +18,10 @@
  * 	- UARTHL_CONFIG_UARTx_ENABLED,
  * where x = {1, 2, 3, 4, 5}.
  *
+ * It is also possible to enable integration with FreeRTOS. In this case,
+ * any byte received or loaded into the transmitter register gives the
+ * corresponding RX/TX semaphore.
+ *
  *  Created on: March 14, 2021
  *      Author: Marco
  */
@@ -116,7 +120,7 @@ int32_t uarthlWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
  *
  * The data is actually read from the RX FIFO queue.
  *
- * @param uart UART to send data.
+ * @param uart UART to read data.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
  * @param timeout Number of attempts to remove an item from the RX queue.

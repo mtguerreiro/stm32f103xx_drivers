@@ -87,6 +87,14 @@ static int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 static uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
 //---------------------------------------------------------------------------
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+/**
+ * @brief Initializes the semaphores for the specified uart.
+ *
+ * @param uart UART.
+ * @param uartControl Pointer to control structure of the specified uart.
+ * @ result 0 if the semaphores were successfully initialized, otherwise an
+ * 			error code.
+ */
 static int32_t uartInitializeSWSemph(USART_TypeDef *uart,
 		uarthlControl_t* uartControl);
 #endif

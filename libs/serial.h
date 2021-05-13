@@ -1,88 +1,87 @@
 /*
- * serial.h
+ * @file serial.h
+ * @brief Implements a simple serial protocol.
+ *
+ * A serial protocol is implemented here through a state machine. The
+ * protocol is as follows:
+ * 	- Start byte (1 byte - 0x55)
+ * 	- ID - or cmd (4 bytes)
+ * 	- Data size (4 bytes)
+ * 	- Data (N bytes)
+ * 	- Stop byte (1 byte - 0x77)
+ *
+ * Whenever data is successfully received, the state machine will call the
+ * function corresponding to the ID received.
  *
  *  Created on: Mar 11, 2019
  *      Author: marco
- *
- *	Current version: v0.1.4
- *
- *	-v0.1.0
- *		- Initial version
- *
- *	-v0.1.1
- *		- Added serialSend
- *		- Handles can be null
- *
- *	-v0.1.2
- *		- Corrected bug in serialSend
- *		- Added serialSendString
- *		- Added serial SendStringRaw
- *
- *	-v0.1.3
- *		- Modularization for serialSend and serialSendString
- *
- *	-v0.1.4
- *		- Added serialRead for master-like serial receive
  *
  */
 
 #ifndef SERIAL_H_
 #define SERIAL_H_
 
-//=============================
-/*--------- Includes --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 #include <stdint.h>
 
-/* Drivers */
-#include "uart.h"
-//=============================
+//===========================================================================
 
-//=============================
-/*-------- Func ptrs --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Data types ------------------------------*/
+//===========================================================================
 /* Function executed when data is received */
 typedef void(*serialHandler_t)(void);
-//=============================
 
-//=============================
-/*--------- Defines ---------*/
-//=============================
-#define configSERIAL_MAX_IDS			10
-//#define configSERIAL_MAX_SER			2
+/*
+ * Function to read a byte from the hardware peripheral. We expect the
+ * function to take as argument a pointer and the TO. If the function was
+ * able to read one byte from the hardware peripheral, then we expect this
+ * function to return 0, and any other value if the no data was read from
+ * the peripheral.
+ */
+typedef int32_t(*serialHWRead_t)(uint8_t *buffer, uint32_t to);
 
-#define configSERIAL_START_MAX_DELAY	2000
-#define configSERIAL_ID_MAX_DELAY		100
+/*
+ * Function to write a byte to the hardware peripheral. We expect the
+ * function to take as argument a pointer and the TO. If the function was
+ * able to write one byte to the hardware peripheral, then we expect this
+ * function to return 0, and any other value if the no data was written to
+ * the peripheral.
+ */
+typedef int32_t(*serialHWWrite_t)(uint8_t *buffer, uint32_t to);
+//===========================================================================
 
-#define configSERIAL_START_BYTE			0x55
-#define configSERIAL_STOP_BYTE			0x77
-//=============================
+//===========================================================================
+/*-------------------------------- Defines --------------------------------*/
+//===========================================================================
+/* Error codes */
+#define SERIAL_ERR_INVALID_ID			-0x01
+#define SERIAL_ERR_EXCEEDED_MAX_ID		-0x02
+#define SERIAL_ERR_WRITE				-0x03
 
-//=============================
-/*--------- Structs ---------*/
-//=============================
-//-----------------------------
-typedef void(*serialHandler_t)(void);
-//typedef struct{
-//	uint32_t id[configSERIAL_MAX_IDS];
-//	serialHandler_t handler[configSERIAL_MAX_IDS];
-//	uint8_t *buffer;
-//	uint32_t dataSize;
-//	uint8_t dataAvailable;
-//}serial_t;
-//-----------------------------
-//=============================
 
-//=============================
-/*-------- Functions --------*/
-//=============================
-void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer);
+#define SERIAL_CONFIG_IDS				10
+#define SERIAL_CONFIG_RX_TO				100
+#define SERIAL_CONFIG_TX_TO				100
+
+#define SERIAL_CONFIG_START_BYTE		0x55
+#define SERIAL_CONFIG_STOP_BYTE			0x77
+//===========================================================================
+
+
+//===========================================================================
+/*------------------------------- Functions -------------------------------*/
+//===========================================================================
+void serialInitialize(uint8_t *buffer, uint32_t size, serialHWRead_t hwRead, serialHWWrite_t hwWrite);
+//void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer);
 uint8_t serialRun(void);
-uint8_t serialInstallID(uint32_t id, serialHandler_t handler);
-uint8_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
-uint8_t serialSendString(uint32_t id, void *string);
-uint8_t serialSendStringRaw(void *string);
-uint8_t serialReceive(uint32_t id);
-//=============================
+int32_t serialInstallID(uint32_t id, serialHandler_t handler);
+int32_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
+//uint8_t serialSendString(uint32_t id, void *string);
+//uint8_t serialSendStringRaw(void *string);
+//uint8_t serialReceive(uint32_t id);
+//===========================================================================
 
 #endif /* SERIAL_H_ */

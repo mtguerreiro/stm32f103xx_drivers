@@ -12,7 +12,6 @@
 
 //===========================================================================
 
-
 //===========================================================================
 /*------------------------------- Data types ------------------------------*/
 //===========================================================================
@@ -25,34 +24,32 @@ typedef enum{
 	SERIAL_ST_DATA_SIZE,
 	SERIAL_ST_DATA,
 	SERIAL_ST_STOP,
-	SERIAL_ST_SUCCESSFUL,
+	SERIAL_ST_DATA_RCVD,
+	SERIAL_ST_SEND_START,
+	SERIAL_ST_SEND_ID,
+	SERIAL_ST_SEND_DATA_SIZE,
+	SERIAL_ST_SEND_DATA,
+	SERIAL_ST_SEND_STOP,
 	SERIAL_ST_END
 }serialSMStates_t;
 //---------------------------------------------------------------------------
 typedef struct{
-	uint32_t n;
-
-	uint32_t currentID;
 
 	serialHWRead_t hwRead;
-
 	serialHWWrite_t hwWrite;
-
-	//uint32_t txBusy;
-
-	uint32_t id[SERIAL_CONFIG_IDS];
-
-	serialHandler_t handler[SERIAL_CONFIG_IDS];
 
 	uint8_t *buffer;
 	uint32_t bufferSize;
 
+	uint32_t id[SERIAL_CONFIG_IDS];
+	serialHandle_t handle[SERIAL_CONFIG_IDS];
+
+	serialSMStates_t st;
+	serialVoid_t state[SERIAL_ST_END];
+
+	uint32_t n;
+	uint32_t currentID;
 	uint32_t dataSize;
-
-	serialSMStates_t state;
-	serialVoid_t functions[SERIAL_ST_END];
-
-	//uint8_t dataAvailable;
 }serialControl_t;
 //---------------------------------------------------------------------------
 //===========================================================================
@@ -66,6 +63,12 @@ static void serialStateID(void);
 static void serialStateDataSize(void);
 static void serialStateData(void);
 static void serialStateStop(void);
+static void serialStateDataRcvd(void);
+static void serialStateSendStart(void);
+static void serialStateSendID(void);
+static void serialStateSendDataSize(void);
+static void serialStateSendData(void);
+static void serialStateSendStop(void);
 static uint32_t serialFindID(uint32_t id);
 static int32_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 //===========================================================================
@@ -73,10 +76,7 @@ static int32_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 //===========================================================================
 /*-------------------------------- Globals --------------------------------*/
 //===========================================================================
-//serialSM_t serialSMControl;
-serialControl_t serialControl = {.n = 0};
-//serialControl_t serialControl = {.n = 0, .txBusy = 0};
-//serial_t *serialCurrent;
+static serialControl_t serialControl = {.n = 0};
 //===========================================================================
 
 //===========================================================================
@@ -97,30 +97,51 @@ void serialInitialize(uint8_t *buffer, uint32_t size, serialHWRead_t hwRead, ser
 	serialControl.dataSize = 0;
 
 	/* Initial state */
-	serialControl.state = SERIAL_ST_START;
+	serialControl.st = SERIAL_ST_START;
 
 	/* State functions */
-	serialControl.functions[SERIAL_ST_START] = serialStateStart;
-	serialControl.functions[SERIAL_ST_ID] = serialStateID;
-	serialControl.functions[SERIAL_ST_DATA_SIZE] = serialStateDataSize;
-	serialControl.functions[SERIAL_ST_DATA] = serialStateData;
-	serialControl.functions[SERIAL_ST_STOP] = serialStateStop;
+	serialControl.state[SERIAL_ST_START] = serialStateStart;
+	serialControl.state[SERIAL_ST_ID] = serialStateID;
+	serialControl.state[SERIAL_ST_DATA_SIZE] = serialStateDataSize;
+	serialControl.state[SERIAL_ST_DATA] = serialStateData;
+	serialControl.state[SERIAL_ST_STOP] = serialStateStop;
+	serialControl.state[SERIAL_ST_DATA_RCVD] = serialStateDataRcvd;
+	serialControl.state[SERIAL_ST_SEND_START] = serialStateSendStart;
+	serialControl.state[SERIAL_ST_SEND_ID] = serialStateSendID;
+	serialControl.state[SERIAL_ST_SEND_DATA_SIZE] = serialStateSendDataSize;
+	serialControl.state[SERIAL_ST_SEND_DATA] = serialStateSendData;
+	serialControl.state[SERIAL_ST_SEND_STOP] = serialStateSendStop;
 
-	/* Initializes handlers */
-	for(k = 0; k < SERIAL_CONFIG_IDS; k++){
-		serialControl.handler[k] = 0;
+	/*
+	 * Initializes handlers. When we declared the serialControl structure,
+	 * we set n to be zero (that's the number of IDs registered). However,
+	 * it may be that due to priority issues, the register ID function was
+	 * called even before the initialization of the serial structure. This
+	 * should be no issue, because the register function will just save the
+	 * handle and increment n. So, we can start from n and go up to the
+	 * max. number of IDs.
+	 */
+	k = serialControl.n;
+	while( k < SERIAL_CONFIG_IDS ){
+		serialControl.handle[k] = 0;
+		serialControl.id[k] = 0;
+		k++;
 	}
 }
 //---------------------------------------------------------------------------
 uint8_t serialRun(void){
 
 	while(1){
-		serialControl.functions[serialControl.state]();
+		serialControl.state[serialControl.st]();
 	}
 }
 //---------------------------------------------------------------------------
-int32_t serialInstallID(uint32_t id, serialHandler_t handler){
+int32_t serialRegisterHandle(uint32_t id, serialHandle_t handle){
 
+	/* Cannot register ID as 0 */
+	if( id == 0 ){
+		return SERIAL_ERR_INVALID_ID;
+	}
 	/* Checks if ID is available */
 	if( serialFindID(id) != serialControl.n ){
 		return SERIAL_ERR_INVALID_ID;
@@ -128,10 +149,14 @@ int32_t serialInstallID(uint32_t id, serialHandler_t handler){
 
 	if( serialControl.n >= SERIAL_CONFIG_IDS ) return SERIAL_ERR_EXCEEDED_MAX_ID;
 
+	SERIAL_CRITICAL_ENTER;
+
 	serialControl.id[serialControl.n] = id;
-	serialControl.handler[serialControl.n] = handler;
+	serialControl.handle[serialControl.n] = handle;
 
 	serialControl.n++;
+
+	SERIAL_CRITICAL_EXIT;
 
 	return 0;
 }
@@ -294,7 +319,7 @@ static void serialStateStart(void){
 
 	if( buffer != SERIAL_CONFIG_START_BYTE ) return;
 
-	serialControl.state = SERIAL_ST_ID;
+	serialControl.st = SERIAL_ST_ID;
 }
 //---------------------------------------------------------------------------
 static void serialStateID(void){
@@ -319,7 +344,7 @@ static void serialStateID(void){
 	 * all bytes to form the ID. Thus, we discard this frame.
 	 */
 	if( k != 4 ){
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
@@ -330,12 +355,12 @@ static void serialStateID(void){
 	 */
 	ididx = serialFindID(id);
 	if( ididx == serialControl.n ){
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
 	serialControl.currentID = ididx;
-	serialControl.state = SERIAL_ST_DATA_SIZE;
+	serialControl.st = SERIAL_ST_DATA_SIZE;
 }
 //---------------------------------------------------------------------------
 static void serialStateDataSize(void){
@@ -359,12 +384,12 @@ static void serialStateDataSize(void){
 	 * all bytes to form the data size. Thus, we discard this frame.
 	 */
 	if(k != 4){
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
 	serialControl.dataSize = size;
-	serialControl.state = SERIAL_ST_DATA;
+	serialControl.st = SERIAL_ST_DATA;
 }
 //---------------------------------------------------------------------------
 static void serialStateData(void){
@@ -385,11 +410,11 @@ static void serialStateData(void){
 
 	/* Checks if we got all the data that we were expecting */
 	if( k != serialControl.dataSize ){
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
-	serialControl.state = SERIAL_ST_STOP;
+	serialControl.st = SERIAL_ST_STOP;
 }
 //---------------------------------------------------------------------------
 static void serialStateStop(void){
@@ -399,24 +424,142 @@ static void serialStateStop(void){
 
 	ret = serialControl.hwRead(&buffer, SERIAL_CONFIG_RX_TO);
 	if( ret != 0 ){
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
 	if( buffer != SERIAL_CONFIG_STOP_BYTE ) {
-		serialControl.state = SERIAL_ST_START;
+		serialControl.st = SERIAL_ST_START;
 		return;
 	}
+
+	serialControl.st = SERIAL_ST_DATA_RCVD;
+}
+//---------------------------------------------------------------------------
+static void serialStateDataRcvd(void){
+
+	uint32_t nbytes;
+	uint32_t id;
+
+	id = serialControl.currentID;
 
 	/*
 	 * At this point, we have received a valid package. Now, we call the
 	 * handler, if there is one.
 	 */
-	if( serialControl.handler[serialControl.currentID] != 0 ) {
-		serialControl.handler[serialControl.currentID]();
+	if( serialControl.handle[id] == 0 ){
+		serialControl.st = SERIAL_ST_START;
+		return;
 	}
 
-	serialControl.state = SERIAL_ST_START;
+	nbytes = serialControl.handle[id](serialControl.buffer, serialControl.dataSize);
+	if( nbytes == 0 ){
+		serialControl.st = SERIAL_ST_START;
+		return;
+	}
+
+	serialControl.dataSize = nbytes;
+	serialControl.st = SERIAL_ST_SEND_START;
+}
+//---------------------------------------------------------------------------
+static void serialStateSendStart(void){
+
+	int32_t ret;
+	uint8_t start;
+
+	start = SERIAL_CONFIG_START_BYTE;
+
+	ret = serialControl.hwWrite(&start, SERIAL_CONFIG_TX_TO);
+
+	if( ret != 0 ){
+		serialControl.st = SERIAL_ST_START;
+	}
+
+	serialControl.st = SERIAL_ST_SEND_ID;
+}
+//---------------------------------------------------------------------------
+static void serialStateSendID(void){
+
+	int32_t ret;
+	uint8_t id;
+	uint32_t id32;
+	uint8_t k;
+
+	id32 = serialControl.id[serialControl.currentID];
+	k = 0;
+	while( k < 4 ){
+		id = (uint8_t)id32;
+		ret = serialControl.hwWrite(&id, SERIAL_CONFIG_TX_TO);
+		if( ret != 0 ) break;
+		id32 = id32 >> 8;
+		k++;
+	}
+
+	if( k != 4 ){
+		serialControl.st = SERIAL_ST_START;
+		return;
+	}
+
+	serialControl.st = SERIAL_ST_SEND_DATA_SIZE;
+}
+//---------------------------------------------------------------------------
+static void serialStateSendDataSize(void){
+
+	int32_t ret;
+	uint8_t data;
+	uint32_t dataSize;
+	uint8_t k;
+
+	dataSize = serialControl.dataSize;
+	k = 0;
+	while( k < 4 ){
+		data = (uint8_t)dataSize;
+		ret = serialControl.hwWrite(&data, SERIAL_CONFIG_TX_TO);
+		if( ret != 0 ) break;
+		dataSize = dataSize >> 8;
+		k++;
+	}
+
+	if( k != 4 ){
+		serialControl.st = SERIAL_ST_START;
+		return;
+	}
+
+	serialControl.st = SERIAL_ST_SEND_DATA;
+}
+//---------------------------------------------------------------------------
+static void serialStateSendData(void){
+
+	int32_t ret;
+	uint8_t *p;
+	uint32_t k;
+
+	/* Sends data from buffer */
+	p = serialControl.buffer;
+	while( k < serialControl.dataSize ){
+		ret = serialControl.hwWrite(p, SERIAL_CONFIG_TX_TO);
+		if( ret != 0 ) break;
+		p++;
+		k++;
+	}
+
+	if( k != serialControl.dataSize ){
+		serialControl.st = SERIAL_ST_START;
+		return;
+	}
+
+	serialControl.st = SERIAL_ST_SEND_STOP;
+}
+//---------------------------------------------------------------------------
+static void serialStateSendStop(void){
+
+	uint8_t stop;
+
+	stop = SERIAL_CONFIG_STOP_BYTE;
+
+	serialControl.hwWrite(&stop, SERIAL_CONFIG_TX_TO);
+
+	serialControl.st = SERIAL_ST_START;
 }
 //---------------------------------------------------------------------------
 static uint32_t serialFindID(uint32_t id){

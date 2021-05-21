@@ -39,6 +39,7 @@ typedef struct{
 	serialHWWrite_t hwWrite;
 
 	uint8_t *buffer;
+	uint8_t *bufferSend;
 	uint32_t bufferSize;
 
 	uint32_t id[SERIAL_CONFIG_IDS];
@@ -70,7 +71,6 @@ static void serialStateSendDataSize(void);
 static void serialStateSendData(void);
 static void serialStateSendStop(void);
 static uint32_t serialFindID(uint32_t id);
-static int32_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes);
 //===========================================================================
 
 //===========================================================================
@@ -160,148 +160,6 @@ int32_t serialRegisterHandle(uint32_t id, serialHandle_t handle){
 
 	return 0;
 }
-//---------------------------------------------------------------------------
-int32_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes){
-
-	int32_t status;
-
-	/* Checks if ID is valid */
-	if( serialFindID(id) == serialControl.n ){
-		return SERIAL_ERR_INVALID_ID;
-	}
-
-	status = serialSendFrame(id, buffer, nbytes);
-	if( status ) return status;
-
-	return 0;
-}
-//---------------------------------------------------------------------------
-//uint8_t serialSendString(uint32_t id, void *string){
-//
-//	uint32_t status;
-//	uint32_t nbytes;
-//	uint8_t *buffer;
-//
-//	buffer = (uint8_t *)string;
-//
-//	/* Checks if ID is valid */
-//	if( serialFindID(id) == serialControl.n ){
-//		return 1;
-//	}
-//
-////	if(serialControl.txBusy){
-////		return 2;
-////	}
-////	serialControl.txBusy = 1;
-//
-//	nbytes = 0;
-//	/* Size of string */
-//	while(*buffer++){
-//		nbytes++;
-//	}
-//	buffer--;
-//	buffer = buffer - nbytes;
-//
-//	status = serialSendFrame(id, buffer, nbytes);
-//	if(status){
-//		//serialControl.txBusy = 0;
-//		return (uint8_t)(status + 2U);
-//	}
-//
-//	//serialControl.txBusy = 0;
-//	return 0;
-//}
-//---------------------------------------------------------------------------
-//uint8_t serialSendStringRaw(void *string){
-//
-//	uint32_t nbytes;
-//	uint8_t *buffer;
-//
-//	buffer = (uint8_t *)string;
-//
-////	if(serialControl.txBusy){
-////		return 1;
-////	}
-////	serialControl.txBusy = 1;
-//
-//	nbytes = 0;
-//	/* Size of string */
-//	while(*buffer++){
-//		nbytes++;
-//	}
-//	buffer--;
-//	buffer = buffer - nbytes;
-//
-//	/* Sends data from buffer */
-//	if( uartWrite(serialControl.uart, buffer, (uint16_t)nbytes) ){
-//		//serialControl.txBusy = 0;
-//		return 4;
-//	}
-//
-////	serialControl.txBusy = 0;
-//	return 0;
-//}
-//---------------------------------------------------------------------------
-//uint8_t serialReceive(uint32_t id){
-//
-//	/*
-//	 * Here, we run state by state.
-//	 */
-//
-//	/*
-//	 * Clears all bytes on the RX queue of UART. Since this is a receive for
-//	 * a master-like communication, there should be no unprocessed data in
-//	 * the buffer. However, there may be unprocessed data for the case where
-//	 * there as an frame error and all the data ended up in the queue.
-//	 * Anyway, any data in the buffer at this stage is not important as we
-//	 * are more concerned about the new incoming data.
-//	 */
-//	uartRXFlush(serialControl.uart);
-//
-//	/* Initial state */
-//	serialSMControl.state = ST_START;
-//
-//	/*
-//	 * Runs the start state. If this functions returns and the state still is
-//	 * ST_START, then we have not received anything from the UART, and we
-//	 * return an error.
-//	 */
-//	serialStateStart();
-//	if(serialSMControl.state == ST_START) return 1;
-//
-//	/*
-//	 * The next state is the ID state, where we expect the ID, or command.
-//	 * If the function returns the ST_START state, then something went wrong
-//	 * and we return an error.
-//	 * In addition, we check the ID. If the ID matches the expected, we
-//	 * continue with the state machine. However, if something different was
-//	 * received, we set the state to ST_START and return an error.
-//	 */
-//	serialStateID();
-//	if(serialSMControl.state == ST_START) return 2;
-//	if(serialControl.id[serialControl.currentId] != id){
-//		serialSMControl.state = ST_START;
-//		return 3;
-//	}
-//
-//	/*
-//	 * Execute the next states (data size, data and stop ). After executing
-//	 * the stop state, we will verify if the entire frame, including the stop
-//	 * bytes, was received successfully, and return accordingly.
-//	 */
-//	serialStateDataSize();
-//	if(serialSMControl.state == ST_START) return 4;
-//
-//	serialStateData();
-//	if(serialSMControl.state == ST_START) return 5;
-//
-//	serialStateStop();
-//	if(serialSMControl.state == ST_START) return 6;
-//
-//	serialSMControl.state = ST_START;
-//
-//	return 0;
-//}
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -443,8 +301,9 @@ static void serialStateStop(void){
 //---------------------------------------------------------------------------
 static void serialStateDataRcvd(void){
 
-	uint32_t nbytes;
+	uint32_t ret;
 	uint32_t id;
+    serialDataExchange_t dataExchange;
 
 	id = serialControl.currentID;
 
@@ -457,13 +316,16 @@ static void serialStateDataRcvd(void){
 		return;
 	}
 
-	nbytes = serialControl.handle[id](serialControl.buffer, serialControl.dataSize);
-	if( nbytes == 0 ){
+	dataExchange.buffer = serialControl.buffer;
+	dataExchange.size = serialControl.dataSize;
+	ret = serialControl.handle[id](&dataExchange);
+	if( ret == 0 ){
 		serialControl.st = SERIAL_ST_START;
 		return;
 	}
 
-	serialControl.dataSize = nbytes;
+	serialControl.dataSize = dataExchange.size;
+	serialControl.bufferSend = dataExchange.buffer;
 	serialControl.st = SERIAL_ST_SEND_START;
 }
 //---------------------------------------------------------------------------
@@ -541,7 +403,7 @@ static void serialStateSendData(void){
 
 	/* Sends data from buffer */
 	k = 0;
-	p = serialControl.buffer;
+	p = serialControl.bufferSend;
 	while( k < serialControl.dataSize ){
 		ret = serialControl.hwWrite(p, SERIAL_CONFIG_TX_TO);
 		if( ret != 0 ) break;
@@ -574,56 +436,14 @@ static uint32_t serialFindID(uint32_t id){
 
 	k = 0;
 
-	while(k < serialControl.n){
-		if(id == serialControl.id[k]) break;
+	while( k < serialControl.n ){
+		if( id == serialControl.id[k] ) break;
 		k++;
 	}
 
-	if(k == serialControl.n) return serialControl.n;
+	if( k == serialControl.n ) return serialControl.n;
 
 	return k;
-}
-//---------------------------------------------------------------------------
-static int32_t serialSendFrame(uint32_t id, uint8_t *buffer, uint32_t nbytes){
-
-	int32_t ret;
-	uint32_t size;
-	uint32_t k;
-	uint8_t start[9];
-	uint8_t *p;
-
-	/* Builds start of frame (start, ID, size) */
-	size = nbytes;
-	start[0] = SERIAL_CONFIG_START_BYTE;
-	for(k = 0; k < 4; k++){
-		start[k + 1] = (uint8_t)id;
-		id =  id >> 8;
-		start[k + 5] = (uint8_t)size;
-		size = size >> 8;
-	}
-
-	/* Sends start of frame */
-	p = start;
-	for(k = 0; k < 9; k++){
-		ret = serialControl.hwWrite(p, SERIAL_CONFIG_TX_TO);
-		if( ret != 0 ) return SERIAL_ERR_WRITE;
-		p++;
-	}
-
-	/* Sends data from buffer */
-	p = buffer;
-	for(k = 0; k < nbytes; k++){
-		ret = serialControl.hwWrite(p, SERIAL_CONFIG_TX_TO);
-		if( ret != 0 ) return SERIAL_ERR_WRITE;
-		p++;
-	}
-
-	/* Sends end of frame */
-	start[0] = SERIAL_CONFIG_STOP_BYTE;
-	ret = serialControl.hwWrite(start, SERIAL_CONFIG_TX_TO);
-	if( ret != 0 ) return SERIAL_ERR_WRITE;
-
-	return 0;
 }
 //---------------------------------------------------------------------------
 //===========================================================================

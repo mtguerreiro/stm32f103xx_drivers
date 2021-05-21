@@ -31,16 +31,31 @@
 //===========================================================================
 
 //===========================================================================
+/*---------------------------- Critical section ---------------------------*/
+//===========================================================================
+#include "stm32f10x.h"
+
+#define SERIAL_CRITICAL_ENTER	__disable_irq() /**< Enters critical section. */
+#define SERIAL_CRITICAL_EXIT	__enable_irq()	/**< Exits critical section. */
+
+//===========================================================================
+
+//===========================================================================
 /*------------------------------- Data types ------------------------------*/
 //===========================================================================
+typedef struct{
+    uint32_t size;
+    uint8_t *buffer;
+}serialDataExchange_t;
+
 /*
- * Function executed when data is received. The buffer holding the data and
- * the number of bytes received are passed to the function as parameters.
- * Additionally, should any message be sent back, this function should
- * return the number of bytes to send. The data should be placed on the
- * buffer.
+ * Function executed when data is received. The buffer holding the data
+ * received and the number of bytes received are passed to the function on
+ * the data structure. Additionally, should any message be sent back, this
+ * function should return 1, and write the number of bytes and the buffer
+ * on the data structure. If there is no reply, this function must return 0.
  */
-typedef uint32_t(*serialHandle_t)(uint8_t *buffer, uint32_t nbytes);
+typedef uint32_t(*serialHandle_t)(serialDataExchange_t *data);
 
 /*
  * Function to read a byte from the hardware peripheral. We expect the
@@ -71,34 +86,19 @@ typedef int32_t(*serialHWWrite_t)(uint8_t *buffer, uint32_t to);
 
 
 #define SERIAL_CONFIG_IDS				10
-#define SERIAL_CONFIG_RX_TO				100
-#define SERIAL_CONFIG_TX_TO				100
+#define SERIAL_CONFIG_RX_TO				1000
+#define SERIAL_CONFIG_TX_TO				1000
 
 #define SERIAL_CONFIG_START_BYTE		0x55
 #define SERIAL_CONFIG_STOP_BYTE			0x77
 //===========================================================================
 
 //===========================================================================
-/*---------------------------- Critical section ---------------------------*/
-//===========================================================================
-#include "stm32f10x.h"
-
-#define SERIAL_CRITICAL_ENTER	__disable_irq() /**< Enters critical section. */
-#define SERIAL_CRITICAL_EXIT	__enable_irq()	/**< Exits critical section. */
-
-//===========================================================================
-
-//===========================================================================
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 void serialInitialize(uint8_t *buffer, uint32_t size, serialHWRead_t hwRead, serialHWWrite_t hwWrite);
-//void serialInitialize(USART_TypeDef *uart, uint32_t baud, uint8_t *buffer);
 uint8_t serialRun(void);
 int32_t serialRegisterHandle(uint32_t id, serialHandle_t handle);
-int32_t serialSend(uint32_t id, uint8_t *buffer, uint32_t nbytes);
-//uint8_t serialSendString(uint32_t id, void *string);
-//uint8_t serialSendStringRaw(void *string);
-//uint8_t serialReceive(uint32_t id);
 //===========================================================================
 
 #endif /* SERIAL_H_ */

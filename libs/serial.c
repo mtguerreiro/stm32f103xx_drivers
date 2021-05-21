@@ -383,9 +383,15 @@ static void serialStateDataSize(void){
 	 * If k did not reach 4, we broke from the while loop before receiving
 	 * all bytes to form the data size. Thus, we discard this frame.
 	 */
-	if(k != 4){
+	if( k != 4 ){
 		serialControl.st = SERIAL_ST_START;
 		return;
+	}
+
+	/* Ensures we don't have buffer overflow */
+	if( size > serialControl.bufferSize ){
+        serialControl.st = SERIAL_ST_START;
+        return;
 	}
 
 	serialControl.dataSize = size;
@@ -400,7 +406,6 @@ static void serialStateData(void){
 
 	buffer = serialControl.buffer;
 	k = 0;
-
 	while( k < serialControl.dataSize ){
 		ret = serialControl.hwRead(buffer, SERIAL_CONFIG_RX_TO);
 		if( ret != 0 ) break;
@@ -535,6 +540,7 @@ static void serialStateSendData(void){
 	uint32_t k;
 
 	/* Sends data from buffer */
+	k = 0;
 	p = serialControl.buffer;
 	while( k < serialControl.dataSize ){
 		ret = serialControl.hwWrite(p, SERIAL_CONFIG_TX_TO);

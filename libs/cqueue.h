@@ -85,6 +85,13 @@ uint8_t cqueueRemove(cqueue_t *queue, uint8_t *data);
  */
 uint16_t cqueueSpace(cqueue_t *queue);
 //---------------------------------------------------------------------------
+/**
+ * @brief Resets the queue.
+ *
+ * @param queue Pointer to queue struct.
+ */
+void cqueueReset(cqueue_t *queue);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 #endif /* CQUEUE_H_ */

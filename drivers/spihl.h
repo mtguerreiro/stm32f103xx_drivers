@@ -32,7 +32,7 @@
 #define SPIHL_CONFIG_SPI1_ENABLED 		/**< Enables SPI1. */
 #define SPIHL_CONFIG_SPI1_RTOS_EN 		/**< Enables FreeRTOS integration for SPI1. */
 
-//#define SPIHL_CONFIG_UART2_ENABLED 	/**< Enables SPI2. */
+//#define SPIHL_CONFIG_SPI2_ENABLED 	/**< Enables SPI2. */
 
 /* Priority for SPI interrupt */
 #define SPIHL_CONFIG_SPI1_NVIC_PRIO		0x06 /**< NVIC SPI1 priority. */
@@ -55,8 +55,23 @@
 /*--------------------------------- Enums ---------------------------------*/
 //===========================================================================
 typedef enum{
-	SPIHL_POLL_PHAL = 0,
-}SPIHLPP_t;
+	SPIHL_POLL_PHAF = 0,
+	SPIHL_POLL_PHAS,
+	SPIHL_POLH_PHAF,
+	SPIHL_POLH_PHAS,
+
+}spihlPP_t;
+
+typedef enum{
+	SPIHL_BR_CLK_DIV_2 = 0,
+	SPIHL_BR_CLK_DIV_4,
+	SPIHL_BR_CLK_DIV_8,
+	SPIHL_BR_CLK_DIV_16,
+	SPIHL_BR_CLK_DIV_32,
+	SPIHL_BR_CLK_DIV_64,
+	SPIHL_BR_CLK_DIV_128,
+	SPIHL_BR_CLK_DIV_256,
+}spihlBR_t;
 //===========================================================================
 
 //===========================================================================
@@ -67,6 +82,7 @@ typedef enum{
  * @brief Initializes the specified SPI.
  *
  * @param SPI SPI to be initialized.
+ * @param clockDiv Clock prescaler.
  * @param clockPP Clock polarity and phase.
  * @param rxBuffer Buffer to hold data received.
  * @param rxBufferSize Size of buffer to hold received data.
@@ -74,7 +90,8 @@ typedef enum{
  * @param txBufferSize Size of buffer to hold data to be transmitted.
  * @result 0 if SPI was initialized successfully, otherwise an error code.
  */
-int32_t spihlInitialize(SPI_TypeDef *spi, SPIHLPP_t clockPP, \
+int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
+		spihlPP_t clockPP, \
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize);
 //---------------------------------------------------------------------------
@@ -92,7 +109,7 @@ int32_t spihlInitialize(SPI_TypeDef *spi, SPIHLPP_t clockPP, \
  * 		   enqueued. If it is a negative number, it is an error code.
  */
 int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
-					uint32_t timeout);
+					uint32_t timeout, uint32_t rxErase);
 //---------------------------------------------------------------------------
 /**
  * @brief Reads data from the specified SPI.
@@ -134,8 +151,10 @@ int32_t spihlPendRXSemaphore(SPI_TypeDef *spi, uint32_t timeout);
  * @param spi SPI to pend.
  * @param timeout RTOS ticks to wait for the semaphore.
  */
-int32_t spihlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout);
+int32_t spihlPendTXSemaphore(SPI_TypeDef *spi, uint32_t timeout);
 #endif
+//---------------------------------------------------------------------------
+int32_t spihlFlushRXBuffer();
 //---------------------------------------------------------------------------
 //===========================================================================
 

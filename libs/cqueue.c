@@ -72,4 +72,15 @@ uint16_t cqueueSpace(cqueue_t *queue){
 	return queue->space;
 }
 //---------------------------------------------------------------------------
+void cqueueReset(cqueue_t *queue){
+
+	CQUEUE_CRITICAL_ENTER;
+
+	queue->head = queue->buffer;
+	queue->tail = queue->buffer;
+	queue->space = queue->size;
+
+	CQUEUE_CRITICAL_EXIT;
+}
+//---------------------------------------------------------------------------
 //===========================================================================

@@ -116,7 +116,7 @@ spihlControl_t spihlSPI3Control;
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t spihlInitialize(SPI_TypeDef *spi, uint16_t clockDiv, \
+int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
 		spihlPP_t clockPP, \
 		uint8_t *rxBuffer, uint16_t rxBufferSize, \
 		uint8_t *txBuffer, uint16_t txBufferSize){
@@ -139,7 +139,6 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
 	uint8_t *p;
 	uint32_t to;
 	int32_t bytesWritten = 0;
-	int32_t bytesRead;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
@@ -190,7 +189,7 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
 int32_t spihlPendRXSemaphore(SPI_TypeDef *spi, uint32_t timeout){
 
 	spihlControl_t *spiControl = 0;
-	spiControl = uarthlGetControlStruct(spi);
+	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
 	if( xSemaphoreTake(spiControl->rxSemph, timeout) != pdTRUE ) return 1;
@@ -295,7 +294,7 @@ static int32_t spihlInitializeHW(SPI_TypeDef *spi, spihlBR_t div, spihlPP_t pp){
 	NVIC_EnableIRQ(irqn);
 
 	/* Sets SPI configs */
-	spi->CR1 = (uint16_t)(div << 3U) | SPI_CR1_MSTR | SPI_CR1_SSI | SPI_CR1_SSM | pp; // fpclk/32 -> 1125000 bps
+	spi->CR1 = (uint16_t)((div << 3U) | SPI_CR1_MSTR | SPI_CR1_SSI | SPI_CR1_SSM | pp); // fpclk/32 -> 1125000 bps
 	spi->CR2 = SPI_CR2_RXNEIE;
 	spi->CR1 |= SPI_CR1_SPE;
 
@@ -308,14 +307,14 @@ static int32_t spihlInitializeSW(SPI_TypeDef *spi,\
 
 	spihlControl_t *spiControl = 0;
 
-	spiControl = uarthlGetControlStruct(spi);
+	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
 	cqueueInitialize(&spiControl->rxQueue, rxBuffer, rxBufferSize);
 	cqueueInitialize(&spiControl->txQueue, txBuffer, txBufferSize);
 
 #ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-	if( uartInitializeSWSemph(spi, spiControl) != 0 ){
+	if( spihlInitializeSWSemph(spi, spiControl) != 0 ){
 		return SPIHL_ERR_SEMPH_CREATE;
 	}
 #endif
@@ -351,7 +350,7 @@ static spihlControl_t* spihlGetControlStruct(SPI_TypeDef *spi){
 }
 //---------------------------------------------------------------------------
 #ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-static int32_t uartInitializeSWSemph(SPI_TypeDef *spi,
+static int32_t spihlInitializeSWSemph(SPI_TypeDef *spi,
 		spihlControl_t* spiControl){
 
 	uint32_t _spi = (uint32_t)spi;
@@ -406,19 +405,8 @@ void SPI1_IRQHandler(void){
 
 	spiStatus = SPI1->SR;
 
-	/* Data received */
-	if( spiStatus & SPI_SR_RXNE ){
-		rxData = (uint8_t) SPI1->DR;
-		cqueueAdd(&spihlSPI1Control.rxQueue, &rxData);
-#ifdef SPIHL_CONFIG_SPI1_RTOS_EN
-		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-		xSemaphoreGiveFromISR(spihlSPI1Control.rxSemph, &xHigherPriorityTaskWoken);
-		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-#endif
-	} // if( spiStatus & SPI_SR_RXNE )
-
 	/* Transmitter ready */
-	else if( spiStatus & SPI_SR_TXE ){
+	if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
 		if( cqueueRemove(&spihlSPI1Control.txQueue, &txData) == 0 ){
 			SPI1->DR = (uint16_t)txData;
 #ifdef SPIHL_CONFIG_SPI1_RTOS_EN
@@ -431,7 +419,19 @@ void SPI1_IRQHandler(void){
 			/* Disables TX interrupt if queue is empty */
 			SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
 		}
-	} // else if( spiStatus & SPI_SR_TXE )
+	} // if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) )
+
+	/* Data received */
+	else if( spiStatus & SPI_SR_RXNE ){
+		rxData = (uint8_t) SPI1->DR;
+		cqueueAdd(&spihlSPI1Control.rxQueue, &rxData);
+#ifdef SPIHL_CONFIG_SPI1_RTOS_EN
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+		xSemaphoreGiveFromISR(spihlSPI1Control.rxSemph, &xHigherPriorityTaskWoken);
+		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
+	} // else if( spiStatus & SPI_SR_RXNE )
+
 }
 #endif
 //---------------------------------------------------------------------------

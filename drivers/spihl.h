@@ -109,7 +109,7 @@ int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
  * 		   enqueued. If it is a negative number, it is an error code.
  */
 int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
-					uint32_t timeout, uint32_t rxErase);
+					uint32_t timeout);
 //---------------------------------------------------------------------------
 /**
  * @brief Reads data from the specified SPI.

@@ -95,7 +95,7 @@ static uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart);
  * @ result 0 if the semaphores were successfully initialized, otherwise an
  * 			error code.
  */
-static int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+static int32_t uarthlInitializeSWSemph(USART_TypeDef *uart,
 		uarthlControl_t* uartControl);
 #endif
 //---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ static int32_t uarthlInitializeSW(USART_TypeDef *uart,\
 	cqueueInitialize(&uartControl->txQueue, txBuffer, txBufferSize);
 
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-	if( uartInitializeSWSemph(uart, uartControl) != 0 ){
+	if( uarthlInitializeSWSemph(uart, uartControl) != 0 ){
 		return UARTHL_ERR_SEMPH_CREATE;
 	}
 #endif
@@ -417,7 +417,7 @@ static uarthlControl_t* uarthlGetControlStruct(USART_TypeDef *uart){
 }
 //---------------------------------------------------------------------------
 #ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-static int32_t uartInitializeSWSemph(USART_TypeDef *uart,
+static int32_t uarthlInitializeSWSemph(USART_TypeDef *uart,
 		uarthlControl_t* uartControl){
 
 	uint32_t _uart = (uint32_t)uart;

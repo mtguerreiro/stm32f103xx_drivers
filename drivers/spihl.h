@@ -108,7 +108,7 @@ int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
  * @result If a positive number, it is the number of bytes successfully
  * 		   enqueued. If it is a negative number, it is an error code.
  */
-int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
+int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 					uint32_t timeout);
 //---------------------------------------------------------------------------
 /**
@@ -123,7 +123,7 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
  * @result If a positive number, it is the number of bytes read. If it
  * 		   is a negative number, it is an error code.
  */
-int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
+int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 				   uint32_t timeout);
 //---------------------------------------------------------------------------
 #ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED

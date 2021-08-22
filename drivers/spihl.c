@@ -132,18 +132,22 @@ int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
+int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 					uint32_t timeout){
 
+	uint8_t emptyByte = 0xFF;
 	spihlControl_t *spiControl = 0;
 	uint8_t *p;
 	uint32_t to;
-	int32_t bytesWritten = 0;
+	int32_t bytesWritten;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	p = buffer;
+	if( buffer != 0 ) p = buffer;
+	else p = &emptyByte;
+
+	bytesWritten = 0;
 	while( bytesWritten < nbytes ){
 		/* Adds item to the TX queue */
 		to = timeout;
@@ -153,25 +157,53 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
 		/* Enables tx interrupt if necessary */
 		if( !(spi->CR2 & SPI_CR2_TXEIE) ) spi->CR2 |= SPI_CR2_TXEIE;
 
-		p++;
+		if( buffer != 0 ) p++;
 		bytesWritten++;
 	}
 
 	return bytesWritten;
 }
 //---------------------------------------------------------------------------
-int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
+int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 				   uint32_t timeout){
 
 	spihlControl_t *spiControl = 0;
 	uint8_t *p;
 	uint32_t to;
-	int32_t bytesRead = 0;
+	int32_t bytesRead;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
+	/*
+	 * Waits until any ongoing transmission ends. To do this, we must wait
+	 * until TXEIE is cleared (meaning there are no more bytes waiting in the
+	 * TX queue) and then we wait until the SPI's BUSY flag is cleared,
+	 * because when TXEIE is cleared, the last byte is still being shifted by
+	 * the SPI hardware.
+     */
+	to = timeout;
+	while( (spi->CR2 & SPI_CR2_TXEIE) && (to != 0 ) ) to--;
+	if( to == 0 ) return 0;
+
+	to = timeout;
+	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
+	if( to == 0 ) return 0;
+
+	/*
+	 * Reads the SPI data register to make sure there is nothing there so
+	 * that we can enable the RX interrupt and not trigger an erroneous
+	 * interrupt.
+	 */
 	p = buffer;
+	*p = (uint8_t)spi->DR;
+	spi->CR2 |= SPI_CR2_RXNEIE;
+
+	/* Write nbytes 0xFF to provide clock for reading */
+	spihlWrite(spi, 0, nbytes, timeout);
+
+	/* Reads the received data from the RX queue */
+	bytesRead = 0;
 	while( bytesRead < nbytes ){
 		/* Removes an item from the RX queue */
 		to = timeout;
@@ -181,6 +213,9 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint16_t nbytes,
 		p++;
 		bytesRead++;
 	}
+
+	/* Disables RX interrupt */
+	spi->CR2 &= ((uint16_t)(~SPI_CR2_RXNEIE));
 
 	return bytesRead;
 }
@@ -295,7 +330,7 @@ static int32_t spihlInitializeHW(SPI_TypeDef *spi, spihlBR_t div, spihlPP_t pp){
 
 	/* Sets SPI configs */
 	spi->CR1 = (uint16_t)((div << 3U) | SPI_CR1_MSTR | SPI_CR1_SSI | SPI_CR1_SSM | pp); // fpclk/32 -> 1125000 bps
-	spi->CR2 = SPI_CR2_RXNEIE;
+	//spi->CR2 = SPI_CR2_RXNEIE;
 	spi->CR1 |= SPI_CR1_SPE;
 
 	return 0;
@@ -407,6 +442,7 @@ void SPI1_IRQHandler(void){
 
 	/* Transmitter ready */
 	if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
+		gpioOutputSet(GPIOA, GPIO_P0);
 		if( cqueueRemove(&spihlSPI1Control.txQueue, &txData) == 0 ){
 			SPI1->DR = (uint16_t)txData;
 #ifdef SPIHL_CONFIG_SPI1_RTOS_EN
@@ -419,10 +455,12 @@ void SPI1_IRQHandler(void){
 			/* Disables TX interrupt if queue is empty */
 			SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
 		}
+		gpioOutputReset(GPIOA, GPIO_P0);
 	} // if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) )
 
 	/* Data received */
-	else if( spiStatus & SPI_SR_RXNE ){
+	else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) ){
+		gpioOutputSet(GPIOA, GPIO_P1);
 		rxData = (uint8_t) SPI1->DR;
 		cqueueAdd(&spihlSPI1Control.rxQueue, &rxData);
 #ifdef SPIHL_CONFIG_SPI1_RTOS_EN
@@ -430,7 +468,8 @@ void SPI1_IRQHandler(void){
 		xSemaphoreGiveFromISR(spihlSPI1Control.rxSemph, &xHigherPriorityTaskWoken);
 		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 #endif
-	} // else if( spiStatus & SPI_SR_RXNE )
+		gpioOutputReset(GPIOA, GPIO_P1);
+	} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
 
 }
 #endif

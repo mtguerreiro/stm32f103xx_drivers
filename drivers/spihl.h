@@ -1,6 +1,6 @@
 /*
  * @file spihl.h
- * @brief Provides a simple bare metal SPI driver for STM32F103 devices.
+ * @brief Provides an SPI driver for STM32F103 devices.
  *
  * The driver expects that the system clock is 72 MHz. In this case, we
  * consider that the clock for SPI1 is also 72 MHz but for the other SPIs we

@@ -482,7 +482,6 @@ void SPI1_IRQHandler(void){
 		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 #endif
 	} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
-
 }
 #endif
 //---------------------------------------------------------------------------

@@ -171,6 +171,9 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 	uint8_t *p;
 	uint32_t to;
 	int32_t bytesRead;
+	int32_t bytesWritten;
+	int32_t bytesToWrite;
+	int32_t bytesToRead;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
@@ -199,19 +202,32 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 	*p = (uint8_t)spi->DR;
 	spi->CR2 |= SPI_CR2_RXNEIE;
 
-	/* Write nbytes 0xFF to provide clock for reading */
-	spihlWrite(spi, 0, nbytes, timeout);
-
-	/* Reads the received data from the RX queue */
+	/*
+	 * Here, we'll provide as many 0xFF bytes as possible, to provide
+	 * clock for reading. Then, we'll read as many bytes as we wrote.
+	 * In the next iteration, we'll write 0xFF for the bytes still to be
+	 * read, repeating this until we read all the bytes or until a
+	 * time-out occurred, which is an error.
+	 */
 	bytesRead = 0;
-	while( bytesRead < nbytes ){
-		/* Removes an item from the RX queue */
-		to = timeout;
-		while( (cqueueRemove(&spiControl->rxQueue, p) != 0) && (to != 0) ) to--;
-		if( to == 0 ) break;
+	bytesWritten = 0;
+	while( 1 ){
+		bytesToRead = 0;
+		bytesToWrite = nbytes - bytesRead;
+		if( bytesToWrite > spiControl->rxQueue.size ) bytesToWrite = spiControl->rxQueue.size;
+		bytesWritten = spihlWrite(spi, 0, bytesToWrite, 1);
+		while( bytesToRead < bytesWritten ){
+			/* Removes an item from the RX queue */
+			to = timeout;
+			while( (cqueueRemove(&spiControl->rxQueue, p) != 0) && (to != 0) ) to--;
+			if( to == 0 ) break;
 
-		p++;
-		bytesRead++;
+			p++;
+			bytesToRead++;
+		}
+		if( to == 0 ) break;
+		bytesRead += bytesToRead;
+		if( bytesRead == nbytes ) break;
 	}
 
 	/* Disables RX interrupt */
@@ -442,7 +458,6 @@ void SPI1_IRQHandler(void){
 
 	/* Transmitter ready */
 	if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
-		gpioOutputSet(GPIOA, GPIO_P0);
 		if( cqueueRemove(&spihlSPI1Control.txQueue, &txData) == 0 ){
 			SPI1->DR = (uint16_t)txData;
 #ifdef SPIHL_CONFIG_SPI1_RTOS_EN
@@ -455,12 +470,10 @@ void SPI1_IRQHandler(void){
 			/* Disables TX interrupt if queue is empty */
 			SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
 		}
-		gpioOutputReset(GPIOA, GPIO_P0);
 	} // if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) )
 
 	/* Data received */
 	else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) ){
-		gpioOutputSet(GPIOA, GPIO_P1);
 		rxData = (uint8_t) SPI1->DR;
 		cqueueAdd(&spihlSPI1Control.rxQueue, &rxData);
 #ifdef SPIHL_CONFIG_SPI1_RTOS_EN
@@ -468,7 +481,6 @@ void SPI1_IRQHandler(void){
 		xSemaphoreGiveFromISR(spihlSPI1Control.rxSemph, &xHigherPriorityTaskWoken);
 		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 #endif
-		gpioOutputReset(GPIOA, GPIO_P1);
 	} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
 
 }

@@ -30,7 +30,7 @@
 //===========================================================================
 /* Enable SPIs */
 #define SPIHL_CONFIG_SPI1_ENABLED 		/**< Enables SPI1. */
-#define SPIHL_CONFIG_SPI1_RTOS_EN 		/**< Enables FreeRTOS integration for SPI1. */
+
 
 //#define SPIHL_CONFIG_SPI2_ENABLED 	/**< Enables SPI2. */
 
@@ -41,14 +41,7 @@
 
 /* Error codes */
 #define SPIHL_ERR_INVALID_SPI				-0x01 /**< Invalid SPI. */
-#define SPIHL_ERR_TX_NO_SPACE				-0x02 /**< TX queue not large enough. */
-#define SPIHL_ERR_SEMPH_CREATE				-0x03 /**< Could no create semaphores.*/
-
-#if defined(SPIHL_CONFIG_SPI1_RTOS_EN) || \
-	defined(SPIHL_CONFIG_SPI2_RTOS_EN) || \
-	defined(SPIHL_CONFIG_SPI3_RTOS_EN)
-#define SPIHL_CONFIG_FREE_RTOS_ENABLED
-#endif
+#define SPIHL_ERR_BUSY						-0x02 /**< SPI is busy. */
 //===========================================================================
 
 //===========================================================================
@@ -84,16 +77,10 @@ typedef enum{
  * @param SPI SPI to be initialized.
  * @param clockDiv Clock prescaler.
  * @param clockPP Clock polarity and phase.
- * @param rxBuffer Buffer to hold data received.
- * @param rxBufferSize Size of buffer to hold received data.
- * @param txBuffer Buffer to hold data to be transmitted.
- * @param txBufferSize Size of buffer to hold data to be transmitted.
  * @result 0 if SPI was initialized successfully, otherwise an error code.
  */
-int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
-		spihlPP_t clockPP, \
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize);
+int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv,
+						spihlPP_t clockPP);
 //---------------------------------------------------------------------------
 /**
  * @brief Sends data through the specified SPI.
@@ -108,8 +95,8 @@ int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
  * @result If a positive number, it is the number of bytes successfully
  * 		   enqueued. If it is a negative number, it is an error code.
  */
-int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
-					uint32_t timeout);
+int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+				   uint32_t timeout);
 //---------------------------------------------------------------------------
 /**
  * @brief Reads data from the specified SPI.
@@ -123,38 +110,8 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
  * @result If a positive number, it is the number of bytes read. If it
  * 		   is a negative number, it is an error code.
  */
-int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
-				   uint32_t timeout);
-//---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-/**
- * @brief Pends on the RX semaphore of the specified SPI.
- *
- * Whenever a new byte is received through SPI, the RX semaphore is given.
- * This function is only available if the FreeRTOS is enabled for the
- * specified SPI.
- *
- * @param spi SPI to pend.
- * @param timeout RTOS ticks to wait for the semaphore.
- */
-int32_t spihlPendRXSemaphore(SPI_TypeDef *spi, uint32_t timeout);
-#endif
-//---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-/**
- * @brief Pends on the TX semaphore of the specified SPI.
- *
- * Whenever a new byte is sent through SPI, the TX semaphore is given.
- * This function is only available if the FreeRTOS is enabled for the
- * specified spi.
- *
- * @param spi SPI to pend.
- * @param timeout RTOS ticks to wait for the semaphore.
- */
-int32_t spihlPendTXSemaphore(SPI_TypeDef *spi, uint32_t timeout);
-#endif
-//---------------------------------------------------------------------------
-int32_t spihlFlushRXBuffer();
+int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+				  uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

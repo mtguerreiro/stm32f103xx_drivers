@@ -10,30 +10,18 @@
 //===========================================================================
 #include "spihl.h"
 
-/* Libs */
-#include "cqueue.h"
-
 /* Drivers */
 #include "gpio.h"
-
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-/* Kernel */
-#include "FreeRTOS.h"
-#include "semphr.h"
-#endif
 //===========================================================================
 
 //===========================================================================
 /*-------------------------------- Structs --------------------------------*/
 //===========================================================================
 typedef struct{
-	cqueue_t rxQueue;			/**< RX queue. */
-	cqueue_t txQueue;			/**< TX queue. */
-
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
-	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
-#endif
+	volatile uint8_t busy;
+	uint8_t mode;
+	uint32_t nbytes;
+	uint8_t *p;
 }spihlControl_t;
 //===========================================================================
 
@@ -58,20 +46,13 @@ static int32_t spihlInitializeHW(SPI_TypeDef *spi, spihlBR_t div, spihlPP_t pp);
 /**
  * @brief Initializes software for the specified SPI.
  *
- * Basically, the queues are set and, if enabled, FreeRTOS stuff is
- * configured.
+ * THe control structure of the selected SPI is initialized.
  *
  * @param spi SPI to be initialized.
- * @param rxBuffer Buffer to hold data received.
- * @param rxBufferSize Size of buffer to hold received data.
- * @param txBuffer Buffer to hold data to be transmitted.
- * @param txBufferSize Size of buffer to hold data to be transmitted.
  * @result 0 if software was initialized successfully, otherwise an error
  *         code.
  */
-static int32_t spihlInitializeSW(SPI_TypeDef *spi,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize);
+static int32_t spihlInitializeSW(SPI_TypeDef *spi);
 //---------------------------------------------------------------------------
 /**
  * @brief Gets pointer for the control structure the specified SPI.
@@ -80,19 +61,6 @@ static int32_t spihlInitializeSW(SPI_TypeDef *spi,\
  * @result Pointer to structure or 0 if structure was not found.
  */
 static spihlControl_t* spihlGetControlStruct(SPI_TypeDef *spi);
-//---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-/**
- * @brief Initializes the semaphores for the specified SPI.
- *
- * @param spi SPI.
- * @param spiControl Pointer to control structure of the specified SPI.
- * @ result 0 if the semaphores were successfully initialized, otherwise an
- * 			error code.
- */
-static int32_t spihlInitializeSWSemph(SPI_TypeDef *spi,
-		spihlControl_t* spiControl);
-#endif
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -116,151 +84,73 @@ spihlControl_t spihlSPI3Control;
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, \
-		spihlPP_t clockPP, \
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize){
+int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv, spihlPP_t clockPP){
 
 	int32_t ret;
 
 	ret = spihlInitializeHW(spi, clockDiv, clockPP);
 	if( ret != 0 ) return ret;
 
-	ret = spihlInitializeSW(spi, rxBuffer, rxBufferSize, txBuffer, txBufferSize);
+	ret = spihlInitializeSW(spi);
 	if( ret != 0 ) return ret;
 
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
+int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 					uint32_t timeout){
 
-	uint8_t emptyByte = 0xFF;
 	spihlControl_t *spiControl = 0;
-	uint8_t *p;
-	uint32_t to;
-	int32_t bytesWritten;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	if( buffer != 0 ) p = buffer;
-	else p = &emptyByte;
+	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
-	bytesWritten = 0;
-	while( bytesWritten < nbytes ){
-		/* Adds item to the TX queue */
-		to = timeout;
-		while( (cqueueAdd(&spiControl->txQueue, p) != 0) && (to != 0) ) to--;
-		if( to == 0 ) break;
+	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return 0;
 
-		/* Enables tx interrupt if necessary */
-		if( !(spi->CR2 & SPI_CR2_TXEIE) ) spi->CR2 |= SPI_CR2_TXEIE;
+	spiControl->busy = 1;
+	spiControl->mode = 0;
+	spiControl->nbytes = nbytes;
+	spiControl->p = buffer;
 
-		if( buffer != 0 ) p++;
-		bytesWritten++;
-	}
+	/* Enables SPI interrupt */
+	spi->CR2 |= SPI_CR2_TXEIE;
 
-	return bytesWritten;
+	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
+int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				   uint32_t timeout){
 
 	spihlControl_t *spiControl = 0;
-	uint8_t *p;
-	uint32_t to;
-	int32_t bytesRead;
-	int32_t bytesWritten;
-	int32_t bytesToWrite;
-	int32_t bytesToRead;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	/*
-	 * Waits until any ongoing transmission ends. To do this, we must wait
-	 * until TXEIE is cleared (meaning there are no more bytes waiting in the
-	 * TX queue) and then we wait until the SPI's BUSY flag is cleared,
-	 * because when TXEIE is cleared, the last byte is still being shifted by
-	 * the SPI hardware.
-     */
-	to = timeout;
-	while( (spi->CR2 & SPI_CR2_TXEIE) && (to != 0 ) ) to--;
-	if( to == 0 ) return 0;
+	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
-	to = timeout;
-	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
-	if( to == 0 ) return 0;
+	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return 0;
+
+	spiControl->busy = 1;
+	spiControl->mode = 1;
+	spiControl->nbytes = nbytes;
+	spiControl->p = buffer;
 
 	/*
 	 * Reads the SPI data register to make sure there is nothing there so
 	 * that we can enable the RX interrupt and not trigger an erroneous
 	 * interrupt.
 	 */
-	p = buffer;
-	*p = (uint8_t)spi->DR;
-	spi->CR2 |= SPI_CR2_RXNEIE;
-
-	/*
-	 * Here, we'll provide as many 0xFF bytes as possible, to provide
-	 * clock for reading. Then, we'll read as many bytes as we wrote.
-	 * In the next iteration, we'll write 0xFF for the bytes still to be
-	 * read, repeating this until we read all the bytes or until a
-	 * time-out occurred, which is an error.
-	 */
-	bytesRead = 0;
-	bytesWritten = 0;
-	while( 1 ){
-		bytesToRead = 0;
-		bytesToWrite = nbytes - bytesRead;
-		if( bytesToWrite > spiControl->rxQueue.size ) bytesToWrite = spiControl->rxQueue.size;
-		bytesWritten = spihlWrite(spi, 0, bytesToWrite, 1);
-		while( bytesToRead < bytesWritten ){
-			/* Removes an item from the RX queue */
-			to = timeout;
-			while( (cqueueRemove(&spiControl->rxQueue, p) != 0) && (to != 0) ) to--;
-			if( to == 0 ) break;
-
-			p++;
-			bytesToRead++;
-		}
-		if( to == 0 ) break;
-		bytesRead += bytesToRead;
-		if( bytesRead == nbytes ) break;
-	}
-
-	/* Disables RX interrupt */
-	spi->CR2 &= ((uint16_t)(~SPI_CR2_RXNEIE));
-
-	return bytesRead;
-}
-//---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-int32_t spihlPendRXSemaphore(SPI_TypeDef *spi, uint32_t timeout){
-
-	spihlControl_t *spiControl = 0;
-	spiControl = spihlGetControlStruct(spi);
-	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
-
-	if( xSemaphoreTake(spiControl->rxSemph, timeout) != pdTRUE ) return 1;
+	*buffer = (uint8_t)spi->DR;
+	spi->CR2 |= (SPI_CR2_RXNEIE | SPI_CR2_TXEIE);
 
 	return 0;
 }
-#endif
-//---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-int32_t spihlPendTXSemaphore(SPI_TypeDef *spi, uint32_t timeout){
-
-	spihlControl_t *spiControl = 0;
-	spiControl = spihlGetControlStruct(spi);
-	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
-
-	if( xSemaphoreTake(spiControl->txSemph, timeout) != pdTRUE ) return 1;
-
-	return 0;
-}
-#endif
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -352,23 +242,14 @@ static int32_t spihlInitializeHW(SPI_TypeDef *spi, spihlBR_t div, spihlPP_t pp){
 	return 0;
 }
 //---------------------------------------------------------------------------
-static int32_t spihlInitializeSW(SPI_TypeDef *spi,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize){
+static int32_t spihlInitializeSW(SPI_TypeDef *spi){
 
 	spihlControl_t *spiControl = 0;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	cqueueInitialize(&spiControl->rxQueue, rxBuffer, rxBufferSize);
-	cqueueInitialize(&spiControl->txQueue, txBuffer, txBufferSize);
-
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-	if( spihlInitializeSWSemph(spi, spiControl) != 0 ){
-		return SPIHL_ERR_SEMPH_CREATE;
-	}
-#endif
+	spiControl->busy = 0;
 
 	return 0;
 }
@@ -400,46 +281,6 @@ static spihlControl_t* spihlGetControlStruct(SPI_TypeDef *spi){
 	return spiControl;
 }
 //---------------------------------------------------------------------------
-#ifdef SPIHL_CONFIG_FREE_RTOS_ENABLED
-static int32_t spihlInitializeSWSemph(SPI_TypeDef *spi,
-		spihlControl_t* spiControl){
-
-	uint32_t _spi = (uint32_t)spi;
-	uint32_t semCreate = 0;
-
-	switch (_spi){
-
-#ifdef SPIHL_CONFIG_SPI1_RTOS_EN
-	case SPI1_BASE:
-		semCreate = 1;
-		break;
-#endif
-#ifdef SPIHL_CONFIG_SPI2_RTOS_EN
-	case SPI2_BASE:
-		semCreate = 1;
-		break;
-#endif
-#ifdef SPIHL_CONFIG_SPI3_RTOS_EN
-	case SPI3_BASE:
-		semCreate = 1;
-		break;
-#endif
-	}
-
-	if( semCreate == 1 ){
-		spiControl->txSemph = xSemaphoreCreateBinary();
-		spiControl->rxSemph = xSemaphoreCreateBinary();
-		if( (spiControl->txSemph == NULL) || (spiControl->rxSemph == NULL) ){
-			return SPIHL_ERR_SEMPH_CREATE;
-		}
-		xSemaphoreTake(spiControl->rxSemph, 0);
-		xSemaphoreGive(spiControl->txSemph);
-	}
-
-	return 0;
-}
-#endif
-//---------------------------------------------------------------------------
 //===========================================================================
 
 
@@ -451,37 +292,51 @@ static int32_t spihlInitializeSWSemph(SPI_TypeDef *spi,
 void SPI1_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
 void SPI1_IRQHandler(void){
 
-	uint8_t txData, rxData;
 	uint32_t spiStatus;
+
+	gpioOutputSet(GPIOA, GPIO_P0);
 
 	spiStatus = SPI1->SR;
 
-	/* Transmitter ready */
-	if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
-		if( cqueueRemove(&spihlSPI1Control.txQueue, &txData) == 0 ){
-			SPI1->DR = (uint16_t)txData;
-#ifdef SPIHL_CONFIG_SPI1_RTOS_EN
-			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			xSemaphoreGiveFromISR(spihlSPI1Control.txSemph, &xHigherPriorityTaskWoken);
-			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-#endif
-		}
-		else{
-			/* Disables TX interrupt if queue is empty */
-			SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
-		}
-	} // if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) )
+	if( spihlSPI1Control.mode == 0 ){
+		/* Transmitter ready */
+		if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
+			if( spihlSPI1Control.nbytes != 0 ){
+				spihlSPI1Control.nbytes--;
+				SPI1->DR = (uint16_t)*spihlSPI1Control.p++;
+			}
+			else{
+				/* Disables TX interrupt if all bytes were sent */
+				SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
+				spihlSPI1Control.busy = 0;
+			}
+		} // if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) )
+	} // if( spihlSPI1Control.mode == 0 )
 
-	/* Data received */
-	else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) ){
-		rxData = (uint8_t) SPI1->DR;
-		cqueueAdd(&spihlSPI1Control.rxQueue, &rxData);
-#ifdef SPIHL_CONFIG_SPI1_RTOS_EN
-		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-		xSemaphoreGiveFromISR(spihlSPI1Control.rxSemph, &xHigherPriorityTaskWoken);
-		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-#endif
-	} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
+	else{
+		/* Transmitter ready */
+		if( (SPI1->CR2 & SPI_CR2_TXEIE) && (spiStatus & SPI_SR_TXE) ){
+			if( spihlSPI1Control.nbytes != 0 ){
+				SPI1->DR = (uint16_t)0xFF;
+				spihlSPI1Control.nbytes--;
+			}
+			else{
+				/* Disables RX and TX interrupt if all bytes were received */
+				SPI1->CR2 &= (uint16_t)(~SPI_CR2_TXEIE);
+			}
+		}
+		/* Data received */
+		else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) ){
+			*spihlSPI1Control.p++ = (uint8_t) SPI1->DR;
+			if( (SPI1->SR & SPI_SR_BSY) == 0 ){
+				SPI1->CR2 &= (uint16_t)(~SPI_CR2_RXNEIE);
+				spihlSPI1Control.busy = 0;
+			}
+		} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
+	} // else -> if( spihlSPI1Control.mode == 0 )
+
+	gpioOutputReset(GPIOA, GPIO_P0);
+
 }
 #endif
 //---------------------------------------------------------------------------

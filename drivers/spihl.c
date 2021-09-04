@@ -294,8 +294,6 @@ void SPI1_IRQHandler(void){
 
 	uint32_t spiStatus;
 
-	gpioOutputSet(GPIOA, GPIO_P0);
-
 	spiStatus = SPI1->SR;
 
 	if( spihlSPI1Control.mode == 0 ){
@@ -334,9 +332,6 @@ void SPI1_IRQHandler(void){
 			}
 		} // else if( (SPI1->CR2 & SPI_CR2_RXNEIE) && (spiStatus & SPI_SR_RXNE) )
 	} // else -> if( spihlSPI1Control.mode == 0 )
-
-	gpioOutputReset(GPIOA, GPIO_P0);
-
 }
 #endif
 //---------------------------------------------------------------------------

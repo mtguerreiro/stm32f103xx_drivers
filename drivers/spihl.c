@@ -147,48 +147,26 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 int32_t spihlWriteBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 					   uint32_t timeout){
 
+	uint8_t d;
 	uint32_t to;
 	spihlControl_t *spiControl = 0;
 
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	to = timeout;
-	while( (spiControl->busy != 0) && (to != 0 ) ) to--;
-	if( to == 0 ) return SPIHL_ERR_BUSY;
-
-	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
-	if( to == 0 ) return SPIHL_ERR_BUSY;
-
 	while(nbytes--){
 		/* Waits until TX is available, then writes data to data register */
 		to = timeout;
 		while( ((spi->SR & SPI_SR_TXE) != SPI_SR_TXE) && (to != 0 ) ) to--;
+		if( to == 0 ) return SPIHL_ERR_TX_TO;
 		spi->DR = (uint16_t)*buffer++;
-	}
 
-//	/* Waits until there is data available in the data register, then clears it */
-//	while(!(SPI1->SR & SPI_SR_RXNE));
-//	d = (uint8_t)SPI1->DR;
-//
-//	spihlControl_t *spiControl = 0;
-//
-//	spiControl = spihlGetControlStruct(spi);
-//	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
-//
-//	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
-//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
-//
-//	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
-//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
-//
-//	spiControl->busy = 1;
-//	spiControl->mode = 0;
-//	spiControl->nbytes = nbytes;
-//	spiControl->p = buffer;
-//
-//	/* Enables SPI TX interrupt */
-//	spi->CR2 |= SPI_CR2_TXEIE;
+		/* Waits to clear byte received during transmission */
+		to = timeout;
+		while( ((spi->SR & SPI_SR_RXNE) != SPI_SR_RXNE) && (to != 0) ) to--;
+		if( to == 0 ) return SPIHL_ERR_RX_TO;
+		d = (uint8_t)spi->DR;
+	}
 
 	return 0;
 }
@@ -232,68 +210,18 @@ int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 	spiControl = spihlGetControlStruct(spi);
 	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
 
-	to = timeout;
-	while( (spiControl->busy != 0) && (to != 0 ) ) to--;
-	if( to == 0 ) return SPIHL_ERR_BUSY;
-
-	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
-	if( to == 0 ) return SPIHL_ERR_BUSY;
-
-	/* Clears the data register */
-	*buffer = (uint8_t)spi->DR;
-
 	/* Waits until TX is available, then writes data to data register */
 	while(nbytes--){
 		to = timeout;
 		while( ((spi->SR & SPI_SR_TXE) != SPI_SR_TXE) && (to != 0 ) ) to--;
+		if( to == 0 ) return SPIHL_ERR_TX_TO;
 		spi->DR = (uint16_t)0xFF;
 
 		/* Waits until there is data available in the data register, then reads it */
-		while( ((spi->SR & SPI_SR_RXNE) != 1) && (to != 0 ) ) to--;
-		*buffer-- = (uint8_t)spi->DR;
+		while( ((spi->SR & SPI_SR_RXNE) != SPI_SR_RXNE) && (to != 0 ) ) to--;
+		if( to == 0 ) return SPIHL_ERR_RX_TO;
+		*buffer++ = (uint8_t)spi->DR;
 	}
-
-	return 0;
-
-//	spihlControl_t *spiControl = 0;
-//
-//	spiControl = spihlGetControlStruct(spi);
-//	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
-//
-//	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
-//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
-//
-//	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
-//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
-//
-//	spiControl->busy = 1;
-//	spiControl->mode = 1;
-//	spiControl->nbytes = nbytes;
-//	spiControl->p = buffer;
-//
-//	/*
-//	 * Reads the SPI data register to make sure there is nothing there so
-//	 * that we can enable the RX interrupt and not trigger an erroneous
-//	 * interrupt.
-//	 */
-//	*buffer = (uint8_t)spi->DR;
-//	spi->CR2 |= (SPI_CR2_RXNEIE | SPI_CR2_TXEIE);
-//
-//	return 0;
-}
-//---------------------------------------------------------------------------
-int32_t spihlWaitBusy(SPI_TypeDef *spi, uint32_t timeout){
-
-	spihlControl_t *spiControl = 0;
-
-	spiControl = spihlGetControlStruct(spi);
-	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
-
-	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return SPIHL_ERR_BUSY;
-
-	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
 	return 0;
 }

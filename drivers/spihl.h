@@ -9,8 +9,11 @@
  *
  * The SPI is always configured as master.
  *
- * The maximum frequency for the SPI is 4 MHz. If the frequency is higher,
- * the interrupt mechanism will not have enough time to read incoming data.
+ * The maximum frequency for the SPI is 2.25 MHz, if using functions that
+ * write/read through the queue. If the frequency is higher, the interrupt
+ * mechanism will not have enough time to read incoming data.
+ *
+ * When using the bare write/read functions, the clock can be higher.
  *
  *  Created on: 8 de mai de 2021
  *      Author: marco
@@ -45,6 +48,8 @@
 /* Error codes */
 #define SPIHL_ERR_INVALID_SPI				-0x01 /**< Invalid SPI. */
 #define SPIHL_ERR_BUSY						-0x02 /**< SPI is busy. */
+#define SPIHL_ERR_TX_TO						-0x03 /**< Timed-out during transmission. */
+#define SPIHL_ERR_RX_TO						-0x04 /**< Timed-out during reception. */
 //===========================================================================
 
 //===========================================================================
@@ -59,11 +64,11 @@ typedef enum{
 }spihlPP_t;
 
 typedef enum{
-//	SPIHL_BR_CLK_DIV_2 = 0,
-//	SPIHL_BR_CLK_DIV_4,
-//	SPIHL_BR_CLK_DIV_8,
-//	SPIHL_BR_CLK_DIV_16,
-	SPIHL_BR_CLK_DIV_32 = 4,
+	SPIHL_BR_CLK_DIV_2 = 0,
+	SPIHL_BR_CLK_DIV_4,
+	SPIHL_BR_CLK_DIV_8,
+	SPIHL_BR_CLK_DIV_16,
+	SPIHL_BR_CLK_DIV_32,
 	SPIHL_BR_CLK_DIV_64,
 	SPIHL_BR_CLK_DIV_128,
 	SPIHL_BR_CLK_DIV_256,
@@ -101,6 +106,23 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				   uint32_t timeout);
 //---------------------------------------------------------------------------
 /**
+ * @brief Sends data through the specified SPI.
+ *
+ * This function will block and return only after the data is sent.
+ *
+ * This function should not be used in conjunction with the normal write
+ * function.
+ *
+ * @param spi SPI to send data.
+ * @param buffer Pointer to buffer holding data to be transmitted.
+ * @param nbytes Number of bytes to send.
+ * @param timeout Timeout to wait to send one byte.
+ * @result 0 if successful, otherwise and error code.
+ */
+int32_t spihlWriteBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+					   uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
  * @brief Reads data from the specified SPI.
  *
  * This function will return immediately, and the data will be saved to the
@@ -115,11 +137,20 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				  uint32_t timeout);
 //---------------------------------------------------------------------------
-int32_t spihlWaitBusy(SPI_TypeDef *spi, uint32_t timeout);
-//---------------------------------------------------------------------------
-int32_t spihlWriteBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
-					   uint32_t timeout);
-//---------------------------------------------------------------------------
+/**
+ * @brief Reads data for the specified SPI.
+ *
+ * This function will block and return only after the data is read.
+ *
+ * This function should not be used in conjunction with the normal read
+ * function.
+ *
+ * @param spi SPI to send data.
+ * @param buffer Pointer to buffer holding data to be transmitted.
+ * @param nbytes Number of bytes to send.
+ * @param timeout Timeout to wait to read one byte.
+ * @result 0 if successful, otherwise and error code.
+ */
 int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				      uint32_t timeout);
 //---------------------------------------------------------------------------

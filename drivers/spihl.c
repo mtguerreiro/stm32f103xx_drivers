@@ -18,9 +18,31 @@
 /*-------------------------------- Structs --------------------------------*/
 //===========================================================================
 typedef struct{
+	/*
+	 * Indicates if SPI is busy sending/receiving data. This is not the same
+	 * as the hardware busy flag. A value of 1 indicates that SPI is busy and
+	 * a value of zero indicates that the SPI is free.
+	 */
 	volatile uint8_t busy;
+
+	/*
+	 * SPI mode. A value of 0 is for writing data and a value of 1 is for
+	 * receiving data. When receiving data, 0xFF bytes are written to provide
+	 * clock for reading.
+	 */
 	uint8_t mode;
+
+	/*
+	 * Number of bytes for the current operation. If writing, this is the
+	 * number of bytes to be written. If reading, this is the number of
+	 * bytes to be read.
+	 */
 	uint32_t nbytes;
+
+	/*
+	 * Buffer to write data to or read data from. This pointer changes vlaues
+	 * as it is incremented.
+	 */
 	uint8_t *p;
 }spihlControl_t;
 //===========================================================================
@@ -109,7 +131,7 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
 	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return 0;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
 	spiControl->busy = 1;
 	spiControl->mode = 0;
@@ -118,6 +140,55 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 
 	/* Enables SPI TX interrupt */
 	spi->CR2 |= SPI_CR2_TXEIE;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t spihlWriteBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+					   uint32_t timeout){
+
+	uint32_t to;
+	spihlControl_t *spiControl = 0;
+
+	spiControl = spihlGetControlStruct(spi);
+	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+
+	to = timeout;
+	while( (spiControl->busy != 0) && (to != 0 ) ) to--;
+	if( to == 0 ) return SPIHL_ERR_BUSY;
+
+	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
+	if( to == 0 ) return SPIHL_ERR_BUSY;
+
+	while(nbytes--){
+		/* Waits until TX is available, then writes data to data register */
+		to = timeout;
+		while( ((spi->SR & SPI_SR_TXE) != SPI_SR_TXE) && (to != 0 ) ) to--;
+		spi->DR = (uint16_t)*buffer++;
+	}
+
+//	/* Waits until there is data available in the data register, then clears it */
+//	while(!(SPI1->SR & SPI_SR_RXNE));
+//	d = (uint8_t)SPI1->DR;
+//
+//	spihlControl_t *spiControl = 0;
+//
+//	spiControl = spihlGetControlStruct(spi);
+//	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+//
+//	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+//
+//	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+//
+//	spiControl->busy = 1;
+//	spiControl->mode = 0;
+//	spiControl->nbytes = nbytes;
+//	spiControl->p = buffer;
+//
+//	/* Enables SPI TX interrupt */
+//	spi->CR2 |= SPI_CR2_TXEIE;
 
 	return 0;
 }
@@ -134,7 +205,7 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
 	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return 0;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
 
 	spiControl->busy = 1;
 	spiControl->mode = 1;
@@ -152,6 +223,80 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 	return 0;
 }
 //---------------------------------------------------------------------------
+int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+				      uint32_t timeout){
+
+	uint32_t to;
+	spihlControl_t *spiControl = 0;
+
+	spiControl = spihlGetControlStruct(spi);
+	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+
+	to = timeout;
+	while( (spiControl->busy != 0) && (to != 0 ) ) to--;
+	if( to == 0 ) return SPIHL_ERR_BUSY;
+
+	while( (spi->SR & SPI_SR_BSY ) && (to != 0 ) ) to--;
+	if( to == 0 ) return SPIHL_ERR_BUSY;
+
+	/* Clears the data register */
+	*buffer = (uint8_t)spi->DR;
+
+	/* Waits until TX is available, then writes data to data register */
+	while(nbytes--){
+		to = timeout;
+		while( ((spi->SR & SPI_SR_TXE) != SPI_SR_TXE) && (to != 0 ) ) to--;
+		spi->DR = (uint16_t)0xFF;
+
+		/* Waits until there is data available in the data register, then reads it */
+		while( ((spi->SR & SPI_SR_RXNE) != 1) && (to != 0 ) ) to--;
+		*buffer-- = (uint8_t)spi->DR;
+	}
+
+	return 0;
+
+//	spihlControl_t *spiControl = 0;
+//
+//	spiControl = spihlGetControlStruct(spi);
+//	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+//
+//	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+//
+//	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+//	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+//
+//	spiControl->busy = 1;
+//	spiControl->mode = 1;
+//	spiControl->nbytes = nbytes;
+//	spiControl->p = buffer;
+//
+//	/*
+//	 * Reads the SPI data register to make sure there is nothing there so
+//	 * that we can enable the RX interrupt and not trigger an erroneous
+//	 * interrupt.
+//	 */
+//	*buffer = (uint8_t)spi->DR;
+//	spi->CR2 |= (SPI_CR2_RXNEIE | SPI_CR2_TXEIE);
+//
+//	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t spihlWaitBusy(SPI_TypeDef *spi, uint32_t timeout){
+
+	spihlControl_t *spiControl = 0;
+
+	spiControl = spihlGetControlStruct(spi);
+	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+
+	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+
+	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+
+	return 0;
+}
 //===========================================================================
 
 //===========================================================================

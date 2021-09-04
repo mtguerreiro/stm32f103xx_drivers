@@ -115,6 +115,14 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				  uint32_t timeout);
 //---------------------------------------------------------------------------
+int32_t spihlWaitBusy(SPI_TypeDef *spi, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t spihlWriteBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+					   uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
+				      uint32_t timeout);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 #endif /* DRIVERS_SPIHL_H_ */

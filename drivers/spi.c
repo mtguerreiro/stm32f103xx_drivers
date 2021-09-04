@@ -50,7 +50,7 @@ int32_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 		 * If we got the semaphore, we should be able to write at least one
 		 * byte, so no need to specify a number of attempts higher than 1.
 		 */
-		ret = spihlWrite(spi, p, (int32_t)(nbytes - bytesWritten), 1);
+		ret = spihlWrite(spi, p, (int32_t)(nbytes - bytesWritten), 10);
 
 		bytesWritten += ret;
 		p += (uint32_t)ret;
@@ -77,7 +77,7 @@ int32_t spiRead(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
 		 * byte, so no need to specify a number of attempts higher than 1.
 		 */
 		gpioOutputSet(GPIOA, GPIO_P0);
-		ret = spihlRead(spi, p, (uint16_t)(nbytes - bytesRead), 1);
+		ret = spihlRead(spi, p, (uint16_t)(nbytes - bytesRead), 10);
 		gpioOutputReset(GPIOA, GPIO_P0);
 
 		bytesRead += ret;

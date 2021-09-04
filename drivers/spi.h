@@ -70,7 +70,7 @@ int32_t spiInitialize(SPI_TypeDef *spi, spiBR_t clockDiv, \
  * @param spi SPI to send data.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
- * @param timeout Number of attempts to add an item to the TX queue.
+ * @param timeout Number of ticks to wait to add an item to the TX queue.
  * @result If a positive number, it is the number of bytes successfully
  * 		   enqueued. If it is a negative number, it is an error code.
  */
@@ -85,7 +85,7 @@ int32_t spiWrite(SPI_TypeDef *spi, uint8_t *buffer, int32_t nbytes,
  * @param spi SPI to read data.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
- * @param timeout Number of attempts to remove an item from the RX queue.
+ * @param timeout Number of ticks to wait to remove an item from the RX queue.
  * @result If a positive number, it is the number of bytes read. If it
  * 		   is a negative number, it is an error code.
  */

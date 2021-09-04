@@ -458,7 +458,8 @@ static int32_t uarthlInitializeSWSemph(USART_TypeDef *uart,
 		if( (uartControl->txSemph == NULL) || (uartControl->rxSemph == NULL) ){
 			return UARTHL_ERR_SEMPH_CREATE;
 		}
-		xSemaphoreGive(uartControl->rxSemph);
+		xSemaphoreTake(uartControl->rxSemph, 0);
+		//xSemaphoreGive(uartControl->rxSemph);
 		xSemaphoreGive(uartControl->txSemph);
 	}
 

@@ -432,7 +432,7 @@ static int32_t spihlInitializeSWSemph(SPI_TypeDef *spi,
 		if( (spiControl->txSemph == NULL) || (spiControl->rxSemph == NULL) ){
 			return SPIHL_ERR_SEMPH_CREATE;
 		}
-		xSemaphoreGive(spiControl->rxSemph);
+		xSemaphoreTake(spiControl->rxSemph, 0);
 		xSemaphoreGive(spiControl->txSemph);
 	}
 

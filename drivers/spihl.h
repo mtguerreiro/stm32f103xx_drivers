@@ -9,6 +9,9 @@
  *
  * The SPI is always configured as master.
  *
+ * The maximum frequency for the SPI is 4 MHz. If the frequency is higher,
+ * the interrupt mechanism will not have enough time to read incoming data.
+ *
  *  Created on: 8 de mai de 2021
  *      Author: marco
  */
@@ -56,11 +59,11 @@ typedef enum{
 }spihlPP_t;
 
 typedef enum{
-	SPIHL_BR_CLK_DIV_2 = 0,
-	SPIHL_BR_CLK_DIV_4,
-	SPIHL_BR_CLK_DIV_8,
-	SPIHL_BR_CLK_DIV_16,
-	SPIHL_BR_CLK_DIV_32,
+//	SPIHL_BR_CLK_DIV_2 = 0,
+//	SPIHL_BR_CLK_DIV_4,
+//	SPIHL_BR_CLK_DIV_8,
+//	SPIHL_BR_CLK_DIV_16,
+	SPIHL_BR_CLK_DIV_32 = 4,
 	SPIHL_BR_CLK_DIV_64,
 	SPIHL_BR_CLK_DIV_128,
 	SPIHL_BR_CLK_DIV_256,
@@ -85,15 +88,14 @@ int32_t spihlInitialize(SPI_TypeDef *spi, spihlBR_t clockDiv,
 /**
  * @brief Sends data through the specified SPI.
  *
- * The data is actually written to the TX FIFO queue, and sent through SPI
- * by an interrupt mechanism.
+ * This function will return immediately, and the data will be sent from the
+ * buffer through an interrupt mechanism.
  *
  * @param spi SPI to send data.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
- * @param timeout Number of attempts to add an item to the TX queue.
- * @result If a positive number, it is the number of bytes successfully
- * 		   enqueued. If it is a negative number, it is an error code.
+ * @param timeout Timeout to wait in case the SPI is busy.
+ * @result 0 if successful, otherwise and error code.
  */
 int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				   uint32_t timeout);
@@ -101,14 +103,14 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 /**
  * @brief Reads data from the specified SPI.
  *
- * The data is actually read from the RX FIFO queue.
+ * This function will return immediately, and the data will be saved to the
+ * buffer through an interrupt mechanism.
  *
  * @param spi SPI to read data.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
- * @param timeout Number of attempts to remove an item from the RX queue.
- * @result If a positive number, it is the number of bytes read. If it
- * 		   is a negative number, it is an error code.
+ * @param timeout Timeout to wait in case the SPI is busy.
+ * @result 0 if successful, otherwise and error code.
  */
 int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				  uint32_t timeout);

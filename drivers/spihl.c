@@ -116,7 +116,7 @@ int32_t spihlWrite(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 	spiControl->nbytes = nbytes;
 	spiControl->p = buffer;
 
-	/* Enables SPI interrupt */
+	/* Enables SPI TX interrupt */
 	spi->CR2 |= SPI_CR2_TXEIE;
 
 	return 0;

@@ -39,11 +39,12 @@ uint8_t cqueueAdd(cqueue_t *queue, uint8_t *data){
 		return 1;
 	}
 	queue->space--;
-	CQUEUE_CRITICAL_EXIT;
 
 	*queue->tail = *data;
 	queue->tail++;
 	if( queue->tail == queue->bufferEnd ) queue->tail = queue->buffer;
+
+	CQUEUE_CRITICAL_EXIT;
 
 	return 0;
 }
@@ -58,11 +59,12 @@ uint8_t cqueueRemove(cqueue_t *queue, uint8_t *data){
 		return 1;
 	}
 	queue->space++;
-	CQUEUE_CRITICAL_EXIT;
 
 	*data = *queue->head;
 	queue->head++;
 	if( queue->head == queue->bufferEnd ) queue->head = queue->buffer;
+
+	CQUEUE_CRITICAL_EXIT;
 
 	return 0;
 }
@@ -70,6 +72,17 @@ uint8_t cqueueRemove(cqueue_t *queue, uint8_t *data){
 uint16_t cqueueSpace(cqueue_t *queue){
 
 	return queue->space;
+}
+//---------------------------------------------------------------------------
+void cqueueReset(cqueue_t *queue){
+
+	CQUEUE_CRITICAL_ENTER;
+
+	queue->head = queue->buffer;
+	queue->tail = queue->buffer;
+	queue->space = queue->size;
+
+	CQUEUE_CRITICAL_EXIT;
 }
 //---------------------------------------------------------------------------
 //===========================================================================

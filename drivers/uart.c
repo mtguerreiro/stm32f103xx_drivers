@@ -46,7 +46,7 @@ int32_t uartWrite(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 		 * If we got the semaphore, we should be able to write at least one
 		 * byte, so no need to specify a number of attempts higher than 1.
 		 */
-		ret = uarthlWrite(uart, p, (uint16_t)(nbytes - bytesWritten), 1);
+		ret = uarthlWrite(uart, p, (uint16_t)(nbytes - bytesWritten), 10);
 
 		bytesWritten += ret;
 		p += (uint32_t)ret;
@@ -72,7 +72,7 @@ int32_t uartRead(USART_TypeDef *uart, uint8_t *buffer, uint16_t nbytes,
 		 * If we got the semaphore, we should be able to read at least one
 		 * byte, so no need to specify a number of attempts higher than 1.
 		 */
-		ret = uarthlRead(uart, p, (uint16_t)(nbytes - bytesRead), 1);
+		ret = uarthlRead(uart, p, (uint16_t)(nbytes - bytesRead), 10);
 
 		bytesRead += ret;
 		p += (uint32_t)ret;

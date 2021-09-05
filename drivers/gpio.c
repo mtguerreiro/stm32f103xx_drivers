@@ -58,21 +58,6 @@ void gpioConfig(GPIO_TypeDef *port, uint16_t pins, uint8_t mode, uint8_t conf){
 	}
 }
 //---------------------------------------------------------------------------
-void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins){
-
-	port->ODR ^= (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
-void gpioOutputSet(GPIO_TypeDef *port, uint16_t pins){
-
-	port->BSRR = (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
-void gpioOutputReset(GPIO_TypeDef *port, uint16_t pins){
-
-	port->BRR = (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
 void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins, uint16_t data){
 
 	uint32_t d;
@@ -84,18 +69,6 @@ void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins, uint16_t data){
 	/* Sets the required pins */
 	d = (uint32_t)(pins & data);
 	port->ODR |= d;
-}
-//---------------------------------------------------------------------------
-uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins){
-
-    /* Obs.: only works if the output is in push-pull mode */
-
-    return (uint16_t)(port->ODR & pins);
-}
-//---------------------------------------------------------------------------
-uint32_t gpioInputRead(GPIO_TypeDef *port, uint16_t pins){
-
-	return port->IDR & pins;
 }
 //---------------------------------------------------------------------------
 //===========================================================================

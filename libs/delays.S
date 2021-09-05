@@ -1,21 +1,23 @@
-    .cpu cortex-m3
-    .eabi_attribute 20, 1
-    .eabi_attribute 21, 1
-    .eabi_attribute 23, 3
-    .eabi_attribute 24, 1
-    .eabi_attribute 25, 1
-    .eabi_attribute 26, 1
-    .eabi_attribute 30, 6
-    .eabi_attribute 34, 1
-    .eabi_attribute 18, 4
-    .align  1
-    .global delaysSub
-    .arch armv7-m
-    .syntax unified
-    .thumb
-    .thumb_func
-    .fpu softvfp
-delaysSub:
+.cpu cortex-m3
+.arch armv7-m
+.syntax unified
+.thumb
+.thumb_func
+
+.global delaysLoop
+delaysLoop:
     subs r0, #1
-    bne delaysSub
+delaysLoopLoop:
+    subs r0, #1
+    bne delaysLoopLoop
+    bx  lr
+
+.global delaysus
+delaysus:
+	mov r1, #12
+	mul r0, r1, r0
+    subs r0, #1
+delaysusLoop:
+    subs r0, #1
+    bne delaysusLoop
     bx  lr

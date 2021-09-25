@@ -27,10 +27,33 @@
 /*-------------------------------- Structs --------------------------------*/
 //===========================================================================
 typedef struct{
-	cqueue_t rxQueue;			/**< RX queue. */
-	cqueue_t txQueue;			/**< TX queue. */
 
-#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
+	/*
+	 * Indicates if I2C is busy sending/receiving data. This is not the same
+	 * as the hardware busy flag. A value of 1 indicates that I2C is busy and
+	 * a value of zero indicates that the I2C is free.
+	 */
+	volatile uint8_t busy;
+
+	/*
+	 * Number of bytes for the current operation. If writing, this is the
+	 * number of bytes to be written. If reading, this is the number of
+	 * bytes to be read.
+	 */
+	uint32_t nbytes;
+
+	/*
+	 * Buffer to write data to or read data from. This pointer changes values
+	 * as it is incremented.
+	 */
+	uint8_t *p;
+
+	/*
+	 * Slave address.
+	 */
+	uint8_t slaveAddress;
+
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
 	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
 #endif
@@ -43,9 +66,7 @@ typedef struct{
 //===========================================================================
 //---------------------------------------------------------------------------
 static int32_t i2chlInitializeHW(I2C_TypeDef *i2c);
-static int32_t i2chlInitializeSW(I2C_TypeDef *i2c,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize);
+static int32_t i2chlInitializeSW(I2C_TypeDef *i2c);
 static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c);
 //---------------------------------------------------------------------------
 //===========================================================================
@@ -68,41 +89,36 @@ i2chlControl_t i2chlI2C2Control;
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t i2chlInitialize(I2C_TypeDef *i2c,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize){
+int32_t i2chlInitialize(I2C_TypeDef *i2c){
 
 	int32_t ret;
 
 	ret = i2chlInitializeHW(i2c);
 	if( ret != 0 ) return ret;
 
-	ret = i2chlInitializeSW(i2c, rxBuffer, rxBufferSize, txBuffer, txBufferSize);
+	ret = i2chlInitializeSW(i2c);
 	if( ret != 0 ) return ret;
 
 	return 0;
 }
 //---------------------------------------------------------------------------
 int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
-		uint16_t nbytes){
+		uint16_t nbytes, uint32_t timeout){
 
 	i2chlControl_t *i2chlControl = 0;
-	uint8_t *p;
-	uint16_t space;
 
 	i2chlControl = i2chlGetControlStruct(i2c);
 	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
 
-	space = cqueueSpace(&i2chlControl->txQueue);
-	if( space < (nbytes + 1) ) return I2CHL_ERR_TX_BUFFER_SIZE;
+	if( nbytes == 0 ) return I2CHL_ERR_TX_0;
 
-	address = (uint8_t)(address << 1);
-	if( cqueueAdd(&i2chlControl->txQueue, &address) != 0 ) return I2CHL_ERR_TX;
+	while( (i2chlControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return I2CHL_ERR_BUSY;
 
-	p = buffer;
-	while( nbytes-- ){
-		if( cqueueAdd(&i2chlControl->txQueue, p++) != 0 ) return I2CHL_ERR_TX;
-	}
+	i2chlControl->slaveAddress = (uint8_t)(address << 1U);
+	i2chlControl->busy = 1;
+	i2chlControl->nbytes = nbytes;
+	i2chlControl->p = buffer;
 
 	/* Generates start condition */
 	i2c->CR1 |= I2C_CR1_START;
@@ -110,6 +126,31 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 	return 0;
 }
 //---------------------------------------------------------------------------
+int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
+		uint16_t nbytes, uint32_t timeout){
+
+	i2chlControl_t *i2chlControl = 0;
+
+	i2chlControl = i2chlGetControlStruct(i2c);
+	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
+
+	if( nbytes == 0 ) return I2CHL_ERR_TX_0;
+
+	while( (i2chlControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return I2CHL_ERR_BUSY;
+
+	i2chlControl->slaveAddress = ((uint8_t)(address << 1U) | 0x01U);
+	i2chlControl->busy = 1;
+	i2chlControl->nbytes = nbytes;
+	i2chlControl->p = buffer;
+
+	/* Generates start condition */
+	i2c->CR1 |= I2C_CR1_START;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+
 //===========================================================================
 
 //===========================================================================
@@ -198,17 +239,7 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 	return 0;
 }
 //---------------------------------------------------------------------------
-static int32_t i2chlInitializeSW(I2C_TypeDef *i2c,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize){
-
-	i2chlControl_t *i2cControl = 0;
-
-	i2cControl = i2chlGetControlStruct(i2c);
-	if( i2cControl == 0 ) return I2CHL_ERR_INVALID_I2C;
-
-	cqueueInitialize(&i2cControl->rxQueue, rxBuffer, rxBufferSize);
-	cqueueInitialize(&i2cControl->txQueue, txBuffer, txBufferSize);
+static int32_t i2chlInitializeSW(I2C_TypeDef *i2c){
 
 	return 0;
 }
@@ -248,56 +279,74 @@ void I2C1_EV_IRQHandler(void){
 	sr1 = I2C1->SR1;
 
 	if( sr1 & I2C_SR1_SB ){
-		if( cqueueRemove(&i2chlI2C1Control.txQueue, &txData) == 0 ){
-			I2C1->DR = txData;
-		}
+		/* Start-condition sent, now send address */
+		I2C1->DR = i2chlI2C1Control.slaveAddress;
 	}
 	else if( sr1 & I2C_SR1_ADDR ){
+		/* Address sent, now start transmission or reception */
 		sr2 = I2C1->SR2;
-		if( cqueueRemove(&i2chlI2C1Control.txQueue, &txData) == 0 ){
-			I2C1->DR = txData;
+		if( i2chlI2C1Control.slaveAddress & 0x01 ){
+			/*
+			 * Receiver mode. Address sent, now receives data. We'll enable
+			 * RX not empty interrupt.
+			 */
+			I2C1->CR2 |= I2C_CR2_ITBUFEN;
+
+			/*
+			 * If we are just looking to receive one byte, we'll set set the
+			 * stop condition already, according to the reference manual.
+			 * Otherwise, we set the ack bit.
+			 */
+			if( i2chlI2C1Control.nbytes == 1 ){
+				I2C1->CR1 &= (uint16_t)(~I2C_CR1_ACK);
+				I2C1->CR1 |= I2C_CR1_STOP;
+			}
+			else{
+				I2C1->CR1 &= (uint16_t)(~I2C_CR1_STOP);
+				I2C1->CR1 |= I2C_CR1_ACK;
+			}
+		}
+		else{
+			/* Transmitter mode. Address sent, now send data */
+			I2C1->DR = *i2chlI2C1Control.p++;
+			i2chlI2C1Control.nbytes--;
 		}
 	}
+	else if( sr1 & I2C_SR1_RXNE ){
+		/* Receiver mode */
+		gpioOutputSet(GPIOA, GPIO_P1);
+		*i2chlI2C1Control.p++ = (uint8_t)I2C1->DR;
+		i2chlI2C1Control.nbytes--;
+
+		if ( i2chlI2C1Control.nbytes == 0 ){
+			/* Received all bytes, disable ER interrupt */
+			I2C1->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
+			i2chlI2C1Control.busy = 0;
+		}
+		if( i2chlI2C1Control.nbytes == 1 ){
+			/* One byte remaining to be received, sets stop condition */
+			I2C1->CR1 &= (uint16_t)(~I2C_CR1_ACK);
+			I2C1->CR1 |= I2C_CR1_STOP;
+		}
+		gpioOutputReset(GPIOA, GPIO_P1);
+	}
 	else if( sr1 & I2C_SR1_BTF ){
-		if( cqueueRemove(&i2chlI2C1Control.txQueue, &txData) == 0 ){
-			I2C1->DR = txData;
+		/*
+		 * We should only get here when in TX mode. In this case, we continue
+		 * to send data or generates the stop condition
+		 */
+		if( i2chlI2C1Control.nbytes != 0 ){
+			I2C1->DR = *i2chlI2C1Control.p++;
+			i2chlI2C1Control.nbytes--;
 		}
 		else{
 			rxData = (uint8_t)I2C1->DR;
 			I2C1->CR1 |= I2C_CR1_STOP;
+			i2chlI2C1Control.busy = 0;
 		}
 	}
 
 	gpioOutputReset(GPIOA, GPIO_P0);
-
-//	usartStatus = USART1->SR;
-//
-//	/* Data received */
-//	if( usartStatus & USART_SR_RXNE ){
-//		rxData = (uint8_t) USART1->DR;
-//		cqueueAdd(&uarthlUART1Control.rxQueue, &rxData);
-//#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-//		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//		xSemaphoreGiveFromISR(uarthlUART1Control.rxSemph, &xHigherPriorityTaskWoken);
-//		if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-//#endif
-//	} //if( usartStatus & USART_SR_RXNE )
-//
-//	/* Transmitter ready */
-//	else if( usartStatus & USART_SR_TXE ){
-//		if( cqueueRemove(&uarthlUART1Control.txQueue, &txData) == 0 ){
-//			USART1->DR = (uint16_t)txData;
-//#ifdef UARTHL_CONFIG_FREE_RTOS_ENABLED
-//			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//			xSemaphoreGiveFromISR(uarthlUART1Control.txSemph, &xHigherPriorityTaskWoken);
-//			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-//#endif
-//		}
-//		else{
-//			/* Disables TX interrupt if queue is empty */
-//			USART1->CR1 &= (uint16_t)(~USART_CR1_TXEIE);
-//		}
-//	}//else if( usartStatus & USART_SR_TXE )
 }
 //---------------------------------------------------------------------------
 //===========================================================================

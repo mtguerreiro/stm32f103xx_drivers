@@ -30,20 +30,22 @@
 
 /* Error codes */
 #define I2CHL_ERR_INVALID_I2C					-0x01 /**< Invalid I2C. */
-#define I2CHL_ERR_TX_BUFFER_SIZE				-0x02 /**< Not enough space in TX buffer. */
-#define I2CHL_ERR_TX							-0x03 /**< Couldn't enqueue TX data. */
+#define I2CHL_ERR_BUSY							-0x02 /**< I2C busy. */
+#define I2CHL_ERR_TX_0							-0x03 /**< Trying to transmit 0 bytes. */
+#define I2CHL_ERR_RX_0							-0x04 /**< Trying to receive 0 bytes. */
 //===========================================================================
 
 //===========================================================================
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
-int32_t i2chlInitialize(I2C_TypeDef *i2c,\
-		uint8_t *rxBuffer, uint16_t rxBufferSize, \
-		uint8_t *txBuffer, uint16_t txBufferSize);
+int32_t i2chlInitialize(I2C_TypeDef *i2c);
 //---------------------------------------------------------------------------
 int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
-		uint16_t nbytes);
+		uint16_t nbytes, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
+		uint16_t nbytes, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

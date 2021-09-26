@@ -1,6 +1,9 @@
 /*
  * spihl.c
  *
+ * Ideia: um semáforo para indicar que os bytes foram recebidos/enviados
+ * (no caso de usar interrupção)
+ *
  *  Created on: 8 de mai de 2021
  *      Author: marco
  */

@@ -63,8 +63,28 @@ typedef struct{
 /*------------------------------- Prototypes ------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
+/**
+ * @brief Initializes the HW for the specified I2C.
+ *
+ * @param i2c I2C to be initialized.
+ * @result 0 if I2C H@ was initialized successfully, otherwise an error code.
+ */
 static int32_t i2chlInitializeHW(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
+/**
+ * @brief Initializes the SW for the specified I2C.
+ *
+ * @param i2c I2C to be initialized.
+ * @result 0 if I2C SW was initialized successfully, otherwise an error code.
+ */
 static int32_t i2chlInitializeSW(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
+/**
+ * @brief Gets pointer for the control structure the specified I2C.
+ *
+ * @param i2c I2C.
+ * @result Pointer to structure or 0 if structure was not found.
+ */
 static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c);
 //---------------------------------------------------------------------------
 //===========================================================================

@@ -13,8 +13,6 @@
 /* Drivers */
 #include "gpio.h"
 
-/* Libs */
-#include "cqueue.h"
 //===========================================================================
 
 //===========================================================================
@@ -53,10 +51,10 @@ typedef struct{
 	 */
 	uint8_t slaveAddress;
 
-#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
-	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
-	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
-#endif
+//#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
+//	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
+//	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
+//#endif
 }i2chlControl_t;
 //===========================================================================
 
@@ -112,13 +110,15 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 
 	if( nbytes == 0 ) return I2CHL_ERR_TX_0;
 
-	while( (i2chlControl->busy != 0) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return I2CHL_ERR_BUSY;
+	if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
 
 	i2chlControl->slaveAddress = (uint8_t)(address << 1U);
 	i2chlControl->busy = 1;
 	i2chlControl->nbytes = nbytes;
 	i2chlControl->p = buffer;
+
+	/* Enables TX/RX interrupt */
+	i2c->CR2 |= I2C_CR2_ITBUFEN;
 
 	/* Generates start condition */
 	i2c->CR1 |= I2C_CR1_START;
@@ -134,15 +134,17 @@ int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 	i2chlControl = i2chlGetControlStruct(i2c);
 	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
 
-	if( nbytes == 0 ) return I2CHL_ERR_TX_0;
+	if( nbytes == 0 ) return I2CHL_ERR_RX_0;
 
-	while( (i2chlControl->busy != 0) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return I2CHL_ERR_BUSY;
+	if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
 
 	i2chlControl->slaveAddress = ((uint8_t)(address << 1U) | 0x01U);
 	i2chlControl->busy = 1;
 	i2chlControl->nbytes = nbytes;
 	i2chlControl->p = buffer;
+
+	/* Enables TX/RX interrupt */
+	i2c->CR2 |= I2C_CR2_ITBUFEN;
 
 	/* Generates start condition */
 	i2c->CR1 |= I2C_CR1_START;
@@ -150,7 +152,19 @@ int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 	return 0;
 }
 //---------------------------------------------------------------------------
+int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout){
 
+	i2chlControl_t *i2chlControl = 0;
+
+	i2chlControl = i2chlGetControlStruct(i2c);
+	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
+
+	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return 1;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -168,7 +182,10 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 
 	uint32_t _i2c = (uint32_t)i2c;
 
-	if( _i2c == I2C1_BASE ){
+	switch(_i2c){
+
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
+	case I2C1_BASE:
 		/* Enables clock to I2C1 peripheral */
 		RCC->APB1ENR |= (uint32_t)(1U << 21);
 
@@ -181,8 +198,12 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 		/* IRQ priority */
 		irqn = I2C1_EV_IRQn;
 		irqnPrio = (IRQn_Type) I2CHL_CONFIG_I2C1_NVIC_PRIO;
-	}
-	else if( _i2c == I2C2_BASE ){
+
+		break;
+#endif
+
+#ifdef I2CHL_CONFIG_I2C2_ENABLED
+	case I2C2_BASE:
 		/* Enables clock to I2C2 peripheral */
 		RCC->APB1ENR |= (uint32_t)(1U << 22);
 
@@ -195,8 +216,11 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 		/* IRQ priority */
 		irqn = I2C2_EV_IRQn;
 		irqnPrio = (IRQn_Type) I2CHL_CONFIG_I2C2_NVIC_PRIO;
-	}
-	else{
+
+		break;
+#endif
+
+	default:
 		return I2CHL_ERR_INVALID_I2C;
 	}
 
@@ -251,12 +275,18 @@ static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c){
 
 	switch (_i2c){
 
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
 	case I2C1_BASE:
 		i2chlControl = &i2chlI2C1Control;
 		break;
+#endif
+
+#ifdef I2CHL_CONFIG_I2C2_ENABLED
 	case I2C2_BASE:
 		i2chlControl = &i2chlI2C2Control;
 		break;
+#endif
+
 	}
 
 	return i2chlControl;
@@ -268,10 +298,10 @@ static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c){
 /*-----------------------------  IRQ Handlers -----------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
 void I2C1_EV_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
 void I2C1_EV_IRQHandler(void){
 
-	uint8_t txData, rxData;
 	uint16_t sr1, sr2;
 
 	gpioOutputSet(GPIOA, GPIO_P0);
@@ -283,15 +313,12 @@ void I2C1_EV_IRQHandler(void){
 		I2C1->DR = i2chlI2C1Control.slaveAddress;
 	}
 	else if( sr1 & I2C_SR1_ADDR ){
-		/* Address sent, now start transmission or reception */
+		/*
+		 * Address sent, now start transmission or reception. In addition, we
+		 * read the SR2 register, in order to clear the flag, per manual.
+		 */
 		sr2 = I2C1->SR2;
 		if( i2chlI2C1Control.slaveAddress & 0x01 ){
-			/*
-			 * Receiver mode. Address sent, now receives data. We'll enable
-			 * RX not empty interrupt.
-			 */
-			I2C1->CR2 |= I2C_CR2_ITBUFEN;
-
 			/*
 			 * If we are just looking to receive one byte, we'll set set the
 			 * stop condition already, according to the reference manual.
@@ -312,15 +339,30 @@ void I2C1_EV_IRQHandler(void){
 			i2chlI2C1Control.nbytes--;
 		}
 	}
+	else if( sr1 & I2C_SR1_TXE ){
+		if( i2chlI2C1Control.nbytes == 0 ){
+			/*
+			 * If there are no more bytes, program the stop condition. We
+			 * also write 0 to DR to clear the TX interrupt flag.
+			 */
+			I2C1->DR = 0;
+			I2C1->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
+			I2C1->CR1 |= I2C_CR1_STOP;
+			i2chlI2C1Control.busy = 0;
+		}
+		else{
+			/* Continues to send data */
+			I2C1->DR = *i2chlI2C1Control.p++;
+			i2chlI2C1Control.nbytes--;
+		}
+	}
 	else if( sr1 & I2C_SR1_RXNE ){
 		/* Receiver mode */
-		gpioOutputSet(GPIOA, GPIO_P1);
 		*i2chlI2C1Control.p++ = (uint8_t)I2C1->DR;
 		i2chlI2C1Control.nbytes--;
 
 		if ( i2chlI2C1Control.nbytes == 0 ){
 			/* Received all bytes, disable ER interrupt */
-			I2C1->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
 			i2chlI2C1Control.busy = 0;
 		}
 		if( i2chlI2C1Control.nbytes == 1 ){
@@ -328,25 +370,88 @@ void I2C1_EV_IRQHandler(void){
 			I2C1->CR1 &= (uint16_t)(~I2C_CR1_ACK);
 			I2C1->CR1 |= I2C_CR1_STOP;
 		}
-		gpioOutputReset(GPIOA, GPIO_P1);
 	}
-	else if( sr1 & I2C_SR1_BTF ){
+
+	gpioOutputReset(GPIOA, GPIO_P0);
+}
+#endif
+//---------------------------------------------------------------------------
+#ifdef I2CHL_CONFIG_I2C2_ENABLED
+void I2C2_EV_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+void I2C2_EV_IRQHandler(void){
+
+	uint16_t sr1, sr2;
+
+	gpioOutputSet(GPIOA, GPIO_P0);
+
+	sr1 = I2C2->SR1;
+
+	if( sr1 & I2C_SR1_SB ){
+		/* Start-condition sent, now send address */
+		I2C2->DR = i2chlI2C2Control.slaveAddress;
+	}
+	else if( sr1 & I2C_SR1_ADDR ){
 		/*
-		 * We should only get here when in TX mode. In this case, we continue
-		 * to send data or generates the stop condition
+		 * Address sent, now start transmission or reception. In addition, we
+		 * read the SR2 register, in order to clear the flag, per manual.
 		 */
-		if( i2chlI2C1Control.nbytes != 0 ){
-			I2C1->DR = *i2chlI2C1Control.p++;
-			i2chlI2C1Control.nbytes--;
+		sr2 = I2C2->SR2;
+		if( i2chlI2C2Control.slaveAddress & 0x01 ){
+			/*
+			 * If we are just looking to receive one byte, we'll set set the
+			 * stop condition already, according to the reference manual.
+			 * Otherwise, we set the ack bit.
+			 */
+			if( i2chlI2C2Control.nbytes == 1 ){
+				I2C2->CR1 &= (uint16_t)(~I2C_CR1_ACK);
+				I2C2->CR1 |= I2C_CR1_STOP;
+			}
+			else{
+				I2C2->CR1 &= (uint16_t)(~I2C_CR1_STOP);
+				I2C2->CR1 |= I2C_CR1_ACK;
+			}
 		}
 		else{
-			rxData = (uint8_t)I2C1->DR;
-			I2C1->CR1 |= I2C_CR1_STOP;
-			i2chlI2C1Control.busy = 0;
+			/* Transmitter mode. Address sent, now send data */
+			I2C2->DR = *i2chlI2C2Control.p++;
+			i2chlI2C2Control.nbytes--;
+		}
+	}
+	else if( sr1 & I2C_SR1_TXE ){
+		if( i2chlI2C2Control.nbytes == 0 ){
+			/*
+			 * If there are no more bytes, program the stop condition. We
+			 * also write 0 to DR to clear the TX interrupt flag.
+			 */
+			I2C2->DR = 0;
+			I2C2->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
+			I2C2->CR1 |= I2C_CR1_STOP;
+			i2chlI2C2Control.busy = 0;
+		}
+		else{
+			/* Continues to send data */
+			I2C2->DR = *i2chlI2C2Control.p++;
+			i2chlI2C2Control.nbytes--;
+		}
+	}
+	else if( sr1 & I2C_SR1_RXNE ){
+		/* Receiver mode */
+		*i2chlI2C2Control.p++ = (uint8_t)I2C2->DR;
+		i2chlI2C2Control.nbytes--;
+
+		if ( i2chlI2C2Control.nbytes == 0 ){
+			/* Received all bytes, disable ER interrupt */
+			i2chlI2C2Control.busy = 0;
+		}
+		if( i2chlI2C2Control.nbytes == 1 ){
+			/* One byte remaining to be received, sets stop condition */
+			I2C2->CR1 &= (uint16_t)(~I2C_CR1_ACK);
+			I2C2->CR1 |= I2C_CR1_STOP;
 		}
 	}
 
 	gpioOutputReset(GPIOA, GPIO_P0);
 }
+#endif
 //---------------------------------------------------------------------------
 //===========================================================================

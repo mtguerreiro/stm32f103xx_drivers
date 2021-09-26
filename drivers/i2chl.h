@@ -21,8 +21,8 @@
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
 /* Enable I2Cs */
-#define I2CHL_CONFIG_I2C1_ENABLED			 		/**< Enables I2C1. */
-#define I2CHL_CONFIG_I2C2_ENABLED			 		/**< Enables I2C2. */
+#define I2CHL_CONFIG_I2C1_ENABLED			 	/**< Enables I2C1. */
+//#define I2CHL_CONFIG_I2C2_ENABLED			 	/**< Enables I2C2. */
 
 /* Priority for I2C interrupt */
 #define I2CHL_CONFIG_I2C1_NVIC_PRIO				0x06 /**< NVIC I2C1 priority. */
@@ -46,6 +46,8 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 //---------------------------------------------------------------------------
 int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 		uint16_t nbytes, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

@@ -1,6 +1,21 @@
 /*
  * gpio.h
  *
+ *	Current version: v0.1.3.
+ *
+ *	v0.1.0:
+ *		- Initial version
+ *
+ *	-v0.1.1:
+ *		- Input can be configured as pull-up or pull-down.
+ *
+ *	-v0.1.2:
+ *		- Changed GPIO_CONFIG_INPUT_FLOAT_INPUT to GPIO_CONFIG_INPUT_FLOAT.
+ *
+ *	-v0.1.3:
+ *		- Changed gpioOutputWrite to accept the pins and the values.
+ *		- Updated the code formatting.
+ *		- Added gpioInputRead.
  *
  *  Created on: March 10, 2019
  *      Author: Marco
@@ -22,40 +37,14 @@
 //===========================================================================
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
-//---------------------------------------------------------------------------
 void gpioPortEnable(GPIO_TypeDef *port);
-//---------------------------------------------------------------------------
 void gpioConfig(GPIO_TypeDef *port, uint16_t pins, uint8_t mode, uint8_t conf);
-//---------------------------------------------------------------------------
-inline void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins){
-
-	port->ODR ^= (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
-inline void gpioOutputSet(GPIO_TypeDef *port, uint16_t pins){
-
-	port->BSRR = (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
-inline void gpioOutputReset(GPIO_TypeDef *port, uint16_t pins){
-
-	port->BRR = (uint32_t)pins;
-}
-//---------------------------------------------------------------------------
+void gpioOutputToggle(GPIO_TypeDef *port, uint16_t pins);
+void gpioOutputSet(GPIO_TypeDef *port, uint16_t pins);
+void gpioOutputReset(GPIO_TypeDef *port, uint16_t pins);
 void gpioOutputWrite(GPIO_TypeDef *port, uint16_t pins, uint16_t data);
-//---------------------------------------------------------------------------
-inline uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins){
-
-	/* Obs.: only works if the output is in push-pull mode */
-
-    return (uint16_t)(port->ODR & pins);
-}
-//---------------------------------------------------------------------------
-inline uint32_t gpioInputRead(GPIO_TypeDef *port, uint16_t pins){
-
-	return port->IDR & pins;
-}
-//---------------------------------------------------------------------------
+uint16_t gpioOutputRead(GPIO_TypeDef *port, uint16_t pins);
+uint32_t gpioInputRead(GPIO_TypeDef *port, uint16_t pins);
 //===========================================================================
 
 //===========================================================================

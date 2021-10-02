@@ -13,6 +13,11 @@
 /* Drivers */
 #include "gpio.h"
 
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
+/* Kernel */
+#include "FreeRTOS.h"
+#include "semphr.h"
+#endif
 //===========================================================================
 
 //===========================================================================
@@ -51,10 +56,10 @@ typedef struct{
 	 */
 	uint8_t slaveAddress;
 
-//#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
-//	SemaphoreHandle_t rxSemph;	/**< RX semaphore. */
-//	SemaphoreHandle_t txSemph;	/**< TX semaphore. */
-//#endif
+	/* I2C busy semaphore is given when the I2C is about to become free */
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
+	SemaphoreHandle_t semaphore;
+#endif
 }i2chlControl_t;
 //===========================================================================
 
@@ -179,8 +184,27 @@ int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout){
 	i2chlControl = i2chlGetControlStruct(i2c);
 	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
 
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
+	if( i2chlControl->semaphore == 0 ){
+		while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0 ) ) timeout--;
+		if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
+	}
+	else{
+		if( xSemaphoreTake(i2chlControl->semaphore, timeout) != pdTRUE ) return I2CHL_ERR_WAIT_TO;
+		/*
+		 * When the semaphore is released, either I2C hardware has to send
+		 * the last byte, wait for ack and send the stop condition, or it
+		 * still has to send nack and the stop condition. Thus, after the
+		 * semaphore is released, we still have to wait a bit longer.
+		 */
+		timeout = 0x1FFF;
+		while( (i2c->SR2 & I2C_SR2_BUSY) && (timeout != 0) ) timeout--;
+		if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
+	}
+#else
 	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0 ) ) timeout--;
-	if( timeout == 0 ) return 1;
+	if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
+#endif
 
 	return 0;
 }
@@ -285,6 +309,30 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 //---------------------------------------------------------------------------
 static int32_t i2chlInitializeSW(I2C_TypeDef *i2c){
 
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
+
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
+#ifdef I2CHL_CONFIG_I2C1_RTOS_EN
+	i2chlI2C1Control.semaphore = xSemaphoreCreateBinary();
+	if( i2chlI2C1Control.semaphore == NULL ) return 1;
+	xSemaphoreGive(i2chlI2C1Control.semaphore);
+#else
+	i2chlI2C1Control.semaphore = 0;
+#endif
+#endif
+
+#ifdef I2CHL_CONFIG_I2C2_ENABLED
+#ifdef I2CHL_CONFIG_I2C2_RTOS_EN
+	i2chlI2C2Control.semaphore = xSemaphoreCreateBinary();
+	if( i2chlI2C2Control.semaphore == NULL ) return 1;
+	xSemaphoreGive(i2chlI2C2Control.semaphore);
+#else
+	i2chlI2C2Control.semaphore = 0;
+#endif
+#endif
+
+#endif
+
 	return 0;
 }
 //---------------------------------------------------------------------------
@@ -324,7 +372,7 @@ void I2C1_EV_IRQHandler(void){
 
 	uint16_t sr1, sr2;
 
-	gpioOutputSet(GPIOA, GPIO_P0);
+	//gpioOutputSet(GPIOA, GPIO_P0);
 
 	sr1 = I2C1->SR1;
 
@@ -369,6 +417,11 @@ void I2C1_EV_IRQHandler(void){
 			I2C1->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
 			I2C1->CR1 |= I2C_CR1_STOP;
 			i2chlI2C1Control.busy = 0;
+#ifdef I2CHL_CONFIG_I2C1_RTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(i2chlI2C1Control.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		else{
 			/* Continues to send data */
@@ -384,6 +437,11 @@ void I2C1_EV_IRQHandler(void){
 		if ( i2chlI2C1Control.nbytes == 0 ){
 			/* Received all bytes, disable ER interrupt */
 			i2chlI2C1Control.busy = 0;
+#ifdef I2CHL_CONFIG_I2C1_RTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(i2chlI2C1Control.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		if( i2chlI2C1Control.nbytes == 1 ){
 			/* One byte remaining to be received, sets stop condition */
@@ -392,7 +450,7 @@ void I2C1_EV_IRQHandler(void){
 		}
 	}
 
-	gpioOutputReset(GPIOA, GPIO_P0);
+	//gpioOutputReset(GPIOA, GPIO_P0);
 }
 #endif
 //---------------------------------------------------------------------------
@@ -402,7 +460,7 @@ void I2C2_EV_IRQHandler(void){
 
 	uint16_t sr1, sr2;
 
-	gpioOutputSet(GPIOA, GPIO_P0);
+	//gpioOutputSet(GPIOA, GPIO_P0);
 
 	sr1 = I2C2->SR1;
 
@@ -447,6 +505,11 @@ void I2C2_EV_IRQHandler(void){
 			I2C2->CR2 &= (uint16_t)(~I2C_CR2_ITBUFEN);
 			I2C2->CR1 |= I2C_CR1_STOP;
 			i2chlI2C2Control.busy = 0;
+#ifdef I2CHL_CONFIG_I2C2_RTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(i2chlI2C2Control.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		else{
 			/* Continues to send data */
@@ -462,6 +525,11 @@ void I2C2_EV_IRQHandler(void){
 		if ( i2chlI2C2Control.nbytes == 0 ){
 			/* Received all bytes, disable ER interrupt */
 			i2chlI2C2Control.busy = 0;
+#ifdef I2CHL_CONFIG_I2C2_RTOS_EN
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xSemaphoreGiveFromISR(i2chlI2C2Control.semaphore, &xHigherPriorityTaskWoken);
+			if( xHigherPriorityTaskWoken == pdTRUE ) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+#endif
 		}
 		if( i2chlI2C2Control.nbytes == 1 ){
 			/* One byte remaining to be received, sets stop condition */
@@ -470,7 +538,7 @@ void I2C2_EV_IRQHandler(void){
 		}
 	}
 
-	gpioOutputReset(GPIOA, GPIO_P0);
+	//gpioOutputReset(GPIOA, GPIO_P0);
 }
 #endif
 //---------------------------------------------------------------------------

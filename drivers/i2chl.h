@@ -24,8 +24,11 @@
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
 /* Enable I2Cs */
-//#define I2CHL_CONFIG_I2C1_ENABLED			 	/**< Enables I2C1. */
+#define I2CHL_CONFIG_I2C1_ENABLED			 	/**< Enables I2C1. */
 #define I2CHL_CONFIG_I2C2_ENABLED			 	/**< Enables I2C2. */
+
+//#define I2CHL_CONFIG_I2C1_RTOS_EN				/**< Enables FreeRTOS integration for I2C1. */
+#define I2CHL_CONFIG_I2C2_RTOS_EN				/**< Enables FreeRTOS integration for I2C2. */
 
 /* Priority for I2C interrupt */
 #define I2CHL_CONFIG_I2C1_NVIC_PRIO				0x06 /**< NVIC I2C1 priority. */
@@ -34,8 +37,13 @@
 /* Error codes */
 #define I2CHL_ERR_INVALID_I2C					-0x01 /**< Invalid I2C. */
 #define I2CHL_ERR_BUSY							-0x02 /**< I2C busy. */
-#define I2CHL_ERR_TX_0							-0x03 /**< Trying to transmit 0 bytes. */
-#define I2CHL_ERR_RX_0							-0x04 /**< Trying to receive 0 bytes. */
+#define I2CHL_ERR_WAIT_TO						-0x03 /**< Timed-out while waiting. */
+#define I2CHL_ERR_TX_0							-0x04 /**< Trying to transmit 0 bytes. */
+#define I2CHL_ERR_RX_0							-0x05 /**< Trying to receive 0 bytes. */
+
+#if defined(I2CHL_CONFIG_I2C1_RTOS_EN) || defined(I2CHL_CONFIG_I2C2_RTOS_EN)
+#define I2CHL_CONFIG_FREE_RTOS_ENABLED
+#endif
 //===========================================================================
 
 //===========================================================================

@@ -135,7 +135,10 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 
 	if( nbytes == 0 ) return I2CHL_ERR_TX_0;
 
-	if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
+	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0) ) timeout--;
+	if( timeout == 0 ) return I2CHL_ERR_BUSY;
+
+	//if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
 
 	i2chlControl->slaveAddress = (uint8_t)(address << 1U);
 	i2chlControl->busy = 1;
@@ -161,7 +164,10 @@ int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 
 	if( nbytes == 0 ) return I2CHL_ERR_RX_0;
 
-	if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
+	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0) ) timeout--;
+	if( timeout == 0 ) return I2CHL_ERR_BUSY;
+
+	//if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
 
 	i2chlControl->slaveAddress = ((uint8_t)(address << 1U) | 0x01U);
 	i2chlControl->busy = 1;
@@ -186,7 +192,7 @@ int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout){
 
 #ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 	if( i2chlControl->semaphore == 0 ){
-		while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0 ) ) timeout--;
+		while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0) ) timeout--;
 		if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
 	}
 	else{
@@ -202,7 +208,7 @@ int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout){
 		if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
 	}
 #else
-	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0 ) ) timeout--;
+	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0) ) timeout--;
 	if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
 #endif
 
@@ -372,7 +378,7 @@ void I2C1_EV_IRQHandler(void){
 
 	uint16_t sr1, sr2;
 
-	//gpioOutputSet(GPIOA, GPIO_P0);
+	gpioOutputSet(GPIOA, GPIO_P0);
 
 	sr1 = I2C1->SR1;
 
@@ -450,7 +456,7 @@ void I2C1_EV_IRQHandler(void){
 		}
 	}
 
-	//gpioOutputReset(GPIOA, GPIO_P0);
+	gpioOutputReset(GPIOA, GPIO_P0);
 }
 #endif
 //---------------------------------------------------------------------------

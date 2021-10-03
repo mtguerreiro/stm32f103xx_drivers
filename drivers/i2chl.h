@@ -68,7 +68,8 @@ int32_t i2chlInitialize(I2C_TypeDef *i2c);
  * @param address Slave address.
  * @param buffer Pointer to buffer holding data to be transmitted.
  * @param nbytes Number of bytes to send.
- * @param timeout Timeout to wait in case the I2C is busy.
+ * @param timeout Timeout to wait in case the I2C is busy. CPU is blocked
+ * 		  during this time.
  * @result 0 if successful, otherwise and error code.
  */
 int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
@@ -84,7 +85,8 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
  * @param address Slave address.
  * @param buffer Pointer to buffer to hold the data read.
  * @param nbytes Number of bytes to read.
- * @param timeout Timeout to wait in case the I2C is busy.
+ * @param timeout Timeout to wait in case the I2C is busy. CPU is blocked
+ * 		  during this time.
  * @result 0 if successful, otherwise and error code.
  */
 int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,

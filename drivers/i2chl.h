@@ -102,6 +102,17 @@ int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
  */
 int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout);
 //---------------------------------------------------------------------------
+/**
+ * @brief Returns the status of the last transaction.
+ *
+ * A value of 0 indicates that the last transaction was successful, and a
+ * value of 1 indicates otherwise.
+ *
+ * @param i2c I2C to check status.
+ * @result 0 if last transaction was successful, 1 otherwise.
+ */
+int32_t i2chlStatusLastTransaction(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 #endif /* DRIVERS_I2CHL_H_ */

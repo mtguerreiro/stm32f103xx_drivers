@@ -150,6 +150,9 @@ int32_t i2chlWrite(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 
 	//if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
 
+	/* Clears stop bit, which could be set due to a fault condition */
+	i2c->CR1 &= (uint16_t)(~I2C_CR1_STOP);
+
 	i2chlControl->slaveAddress = (uint8_t)(address << 1U);
 	i2chlControl->status |= (uint8_t)(I2CHL_STATUS_BUSY);
 	i2chlControl->status &= (uint8_t)(~I2CHL_STATUS_COMM);
@@ -179,6 +182,9 @@ int32_t i2chlRead(I2C_TypeDef *i2c, uint8_t address, uint8_t *buffer,
 	if( timeout == 0 ) return I2CHL_ERR_BUSY;
 
 	//if( i2chlWaitWhileBusy(i2c, timeout) != 0 ) return I2CHL_ERR_BUSY;
+
+	/* Clears stop bit, which could be set due to a fault condition */
+	i2c->CR1 &= (uint16_t)(~I2C_CR1_STOP);
 
 	i2chlControl->slaveAddress = ((uint8_t)(address << 1U) | 0x01U);
 	i2chlControl->status &= (uint8_t)(~(I2CHL_STATUS_BUSY | I2CHL_STATUS_COMM));
@@ -485,6 +491,34 @@ void I2C1_EV_IRQHandler(void){
 	}
 
 	gpioOutputReset(GPIOA, GPIO_P0);
+}
+#endif
+//---------------------------------------------------------------------------
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
+void I2C1_ER_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+void I2C1_ER_IRQHandler(void){
+
+	uint16_t sr1;
+
+	sr1 = I2C1->SR1;
+
+	if( sr1 & I2C_SR1_TIMEOUT ) I2C1->SR1 &= (uint16_t)(~I2C_SR1_TIMEOUT);
+
+	else if( sr1 & I2C_SR1_BERR ) I2C1->SR1 &= (uint16_t)(~I2C_SR1_BERR);
+
+	else if( sr1 & I2C_SR1_AF ){
+		I2C1->SR1 &= (uint16_t)(~I2C_SR1_AF);
+		i2chlI2C1Control.status &= (uint8_t)(~I2CHL_STATUS_BUSY);
+		i2chlI2C1Control.status |= (uint8_t)(I2CHL_STATUS_COMM);
+		I2C1->CR1 |= I2C_CR1_STOP;
+	}
+
+	else if( sr1 & I2C_SR1_ARLO ){
+		I2C1->SR1 &= (uint16_t)(~I2C_SR1_ARLO);
+		i2chlI2C1Control.status &= (uint8_t)(~I2CHL_STATUS_BUSY);
+		i2chlI2C1Control.status |= (uint8_t)(I2CHL_STATUS_COMM);
+		I2C1->CR1 |= I2C_CR1_STOP;
+	}
 }
 #endif
 //---------------------------------------------------------------------------

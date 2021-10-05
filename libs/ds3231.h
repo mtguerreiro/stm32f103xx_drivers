@@ -39,7 +39,8 @@
 #define DS3231_ERR_WRITE_TO			-0x06 /**< Write time-out. */
 #define DS3231_ERR_READ_TO			-0x07 /**< Read time-out. */
 #define DS3231_ERR_STATUS_READ		-0x08 /**< Error reading status. */
-#define DS3231_ERR_CMD				-0x09 /**< Failed to complete command. */
+#define DS3231_ERR_STATUS_WRITE 	-0x09 /**< Error writing status. */
+#define DS3231_ERR_CMD				-0x0A /**< Failed to complete command. */
 
 /* DS3231 address map */
 #define DS3231_ADD_STATUS			0x0F /**< Status register */
@@ -56,11 +57,65 @@
 /*------------------------------- Functions -------------------------------*/
 //===========================================================================
 //---------------------------------------------------------------------------
+/**
+ * @brief Initializes DS3231.
+ *
+ * Basically, just the I2C is initialized.
+ *
+ * @result 0 of initialization was successful, an error code otherwise.
+ */
 int32_t ds3231Initialize(void);
 //---------------------------------------------------------------------------
+/**
+ * @brief Reads DS3231's status register.
+ *
+ * @param status Buffer to save status.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
 int32_t ds3231StatusRead(uint8_t *status, uint32_t timeout);
 //---------------------------------------------------------------------------
-int32_t ds3231EN32kHz(uint8_t en, uint32_t timeout);
+/**
+ * @brief Reads EN32kHz flag.
+ *
+ * @param status Buffer to save flag.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231EN32kHzRead(uint8_t *en32kHz, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Clears EN32kHz flag.
+ *
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231EN32kHzClear(uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Sets EN32kHz flag.
+ *
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231EN32kHzSet(uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Reads OSF flag.
+ *
+ * @param osf Buffer to save flag.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231OSFRead(uint8_t *osf, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Clears OSF flag.
+ *
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231OSFClear(uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

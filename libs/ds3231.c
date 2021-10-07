@@ -99,16 +99,6 @@ int32_t ds3231StatusRead(uint8_t *status, uint32_t timeout){
 	ret = ds3231RegisterRead(DS3231_ADD_STATUS, status, timeout);
 
 	return ret;
-//	uint8_t data;
-//
-//	/* First, set DS3231's address pointer */
-//	data = DS3231_ADD_STATUS;
-//	if( ds3231Write(&data, 1, timeout) != 0 ) return DS3231_ERR_WRITE_TO;
-//
-//	/* Now, read the register */
-//	if( ds3231Read(status, 1, timeout) != 0 ) return DS3231_ERR_READ_TO;
-//
-//	return 0;
 }
 //---------------------------------------------------------------------------
 int32_t ds3231EN32kHzRead(uint8_t *en32kHz, uint32_t timeout){
@@ -170,22 +160,11 @@ int32_t ds3231OSFClear(uint32_t timeout){
 //---------------------------------------------------------------------------
 int32_t ds3231ControlRead(uint8_t *buffer, uint32_t timeout){
 
-	uint32_t ret;
+	int32_t ret;
 
 	ret = ds3231RegisterRead(DS3231_ADD_CONTROL, buffer, timeout);
 
 	return ret;
-
-//	uint8_t data;
-//
-//	/* First, set DS3231's address pointer */
-//	data = DS3231_ADD_CONTROL;
-//	if( ds3231Write(&data, 1, timeout) != 0 ) return DS3231_ERR_WRITE_TO;
-//
-//	/* Now, read the register */
-//	if( ds3231Read(status, 1, timeout) != 0 ) return DS3231_ERR_READ_TO;
-//
-//	return 0;
 }
 //---------------------------------------------------------------------------
 int32_t ds3231ControlBitsClear(uint8_t bits, uint32_t timeout){
@@ -205,6 +184,55 @@ int32_t ds3231ControlBitsSet(uint8_t bits, uint32_t timeout){
 	int32_t ret;
 
 	ret = ds3231RegisterBitsSet(DS3231_ADD_CONTROL, bits, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231TemperatureRead(int8_t *temp, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231RegisterRead(DS3231_ADD_TEMP_UB, temp, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231SecondsRead(uint8_t *sec, uint32_t timeout){
+
+	int32_t ret;
+
+	uint8_t secUn, secDez, secData;
+
+	ret = ds3231RegisterRead(DS3231_ADD_SECONDS, &secData, timeout);
+	if( ret != 0 ) return ret;
+
+	secUn = secData & 0x0F;
+	secDez = (secData & 0x70) >> 4;
+
+	*sec = (uint8_t)(secUn + (secDez * 10));
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231SecondsSet(uint8_t sec, uint32_t timeout){
+
+	int32_t ret;
+
+	uint8_t secUn, secDez, secData;
+
+	uint8_t cmd[2];
+
+	if( sec > 59 ) return DS3231_ERR_INVALID_SEC;
+
+	secUn = sec % 10;
+	secDez = (uint8_t)(sec / 10);
+
+	secData = (uint8_t)(secUn | (secDez << 4));
+
+	cmd[0] = DS3231_ADD_SECONDS;
+	cmd[1] = secData;
+
+	ret = ds3231Write(cmd, 2, timeout);
 
 	return ret;
 }
@@ -317,5 +345,16 @@ static int32_t ds3231RegisterRead(uint8_t reg, uint8_t *data, uint32_t timeout){
 
 	return 0;
 }
+//---------------------------------------------------------------------------
+//static int32_t ds3231RegisterWrite(uint8_t reg, uint8_t *data, uint32_t timeout){
+//
+//	/* First, set DS3231's address pointer */
+//	if( ds3231Write(&reg, 1, timeout) != 0 ) return DS3231_ERR_WRITE_TO;
+//
+//	/* Now, read the register */
+//	if( ds3231Read(data, 1, timeout) != 0 ) return DS3231_ERR_READ_TO;
+//
+//	return 0;
+//}
 //---------------------------------------------------------------------------
 //===========================================================================

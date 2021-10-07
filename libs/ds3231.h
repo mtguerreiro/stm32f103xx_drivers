@@ -41,8 +41,11 @@
 #define DS3231_ERR_STATUS_READ		-0x08 /**< Error reading status. */
 #define DS3231_ERR_STATUS_WRITE 	-0x09 /**< Error writing status. */
 #define DS3231_ERR_CMD				-0x0A /**< Failed to complete command. */
+#define DS3231_ERR_INVALID_SEC		-0x0B /**< Invalid value for seconds. */
 
 /* DS3231 address map */
+#define DS3231_ADD_SECONDS			0x00 /**< Upper byte of the temperature register. */
+#define DS3231_ADD_TEMP_UB			0x11 /**< Upper byte of the temperature register. */
 #define DS3231_ADD_CONTROL			0x0E /**< Control register. */
 #define DS3231_ADD_STATUS			0x0F /**< Status register. */
 
@@ -157,6 +160,36 @@ int32_t ds3231ControlBitsClear(uint8_t bits, uint32_t timeout);
  * @result 0 of command was successful, an error code otherwise.
  */
 int32_t ds3231ControlBitsSet(uint8_t bits, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Reads the temperature register.
+ *
+ * This function just reads the temperature already converted, i.e. no new
+ * conversion is started prior to reading the temperature registers.
+ *
+ * @param buffer Buffer to save temperature.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231TemperatureRead(int8_t *temp, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Reads seconds.
+ *
+ * @param sec Buffer to save data to.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231SecondsRead(uint8_t *sec, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Sets seconds.
+ *
+ * @param sec Value to set. Must be between 0 and 59.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231SecondsSet(uint8_t sec, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

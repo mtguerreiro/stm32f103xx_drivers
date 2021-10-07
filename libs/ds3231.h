@@ -43,14 +43,26 @@
 #define DS3231_ERR_CMD				-0x0A /**< Failed to complete command. */
 
 /* DS3231 address map */
-#define DS3231_ADD_STATUS			0x0F /**< Status register */
+#define DS3231_ADD_CONTROL			0x0E /**< Control register. */
+#define DS3231_ADD_STATUS			0x0F /**< Status register. */
 
 /* DS3231 status bits */
-#define DS3231_STATUS_EN32KHZ_OFFS	(3)
-#define DS3231_STATUS_OSF_OFFS		(7)
+#define DS3231_STATUS_OSF			(1U << 7) /**< Oscillator stop flag. */
+#define DS3231_STATUS_EN32KHZ		(1U << 3) /**< Enable 32kHz output flag. */
+#define DS3231_STATUS_BSY			(1U << 2) /**< Busy flag. */
+#define DS3231_STATUS_A2F			(1U << 1) /**< Alarm 2 flag. */
+#define DS3231_STATUS_A1F			(1U << 0) /**< Alarm 1 flag. */
 
-#define DS3231_STATUS_EN32KHZ		(1U << DS3231_STATUS_EN32KHZ_OFFS)
-#define DS3231_STATUS_OSF			(1U << DS3231_STATUS_OSF_OFFS)
+/* DS3231 control bits */
+#define DS3231_CONTROL_EOSC			(1U << 7) /**< Enable oscillator flag. */
+#define DS3231_CONTROL_BBSQW		(1U << 6) /**< Battery-backed square-wave enable flag. */
+#define DS3231_CONTROL_CONV			(1U << 5) /**< Convert temperature flag. */
+#define DS3231_CONTROL_RS2			(1U << 4) /**< Rate select 2 flag. */
+#define DS3231_CONTROL_RS1			(1U << 3) /**< Rate select 1 flag. */
+#define DS3231_CONTROL_INTCN		(1U << 2) /**< Interrupt control flag. */
+#define DS3231_CONTROL_A2IE			(1U << 1) /**<  Alarm 2 interrupt enable flag. */
+#define DS3231_CONTROL_A1IE			(1U << 0) /**<  Alarm 1 interrupt enable flag. */
+
 //===========================================================================
 
 //===========================================================================
@@ -116,6 +128,35 @@ int32_t ds3231OSFRead(uint8_t *osf, uint32_t timeout);
  * @result 0 of command was successful, an error code otherwise.
  */
 int32_t ds3231OSFClear(uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Reads the control register.
+ *
+ * @param buffer Buffer to save data to.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231ControlRead(uint8_t *buffer, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Clears the selected bits of the control register.
+ *
+ * The CONV bit is ignored by this function.
+ *
+ * @param bits Bits to be cleared.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231ControlBitsClear(uint8_t bits, uint32_t timeout);
+//---------------------------------------------------------------------------
+/**
+ * @brief Sets the selected bits of the control register.
+ *
+ * @param bits Bits to be cleared.
+ * @param timeout Timeout to wait until procedure is completed.
+ * @result 0 of command was successful, an error code otherwise.
+ */
+int32_t ds3231ControlBitsSet(uint8_t bits, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

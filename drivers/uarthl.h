@@ -49,11 +49,11 @@
 //#define UARTHL_CONFIG_UART2_ENABLED 		/**< Enables UART2. */
 
 /* Priority for UART interrupt */
-#define UARTHL_CONFIG_UART1_NVIC_PRIO		0x06 /**< NVIC UART1 priority. */
-#define UARTHL_CONFIG_UART2_NVIC_PRIO		0x06 /**< NVIC UART2 priority. */
-#define UARTHL_CONFIG_UART3_NVIC_PRIO		0x06 /**< NVIC UART3 priority. */
-#define UARTHL_CONFIG_UART4_NVIC_PRIO		0x06 /**< NVIC UART4 priority. */
-#define UARTHL_CONFIG_UART5_NVIC_PRIO		0x06 /**< NVIC UART5 priority. */
+#define UARTHL_CONFIG_UART1_NVIC_PRIO		0x07 /**< NVIC UART1 priority. */
+#define UARTHL_CONFIG_UART2_NVIC_PRIO		0x07 /**< NVIC UART2 priority. */
+#define UARTHL_CONFIG_UART3_NVIC_PRIO		0x07 /**< NVIC UART3 priority. */
+#define UARTHL_CONFIG_UART4_NVIC_PRIO		0x07 /**< NVIC UART4 priority. */
+#define UARTHL_CONFIG_UART5_NVIC_PRIO		0x07 /**< NVIC UART5 priority. */
 
 /* Error codes */
 #define UARTHL_ERR_INVALID_UART				-0x01 /**< Invalid UART. */

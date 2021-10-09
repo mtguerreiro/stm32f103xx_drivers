@@ -41,10 +41,14 @@
 #define DS3231_ERR_STATUS_READ		-0x08 /**< Error reading status. */
 #define DS3231_ERR_STATUS_WRITE 	-0x09 /**< Error writing status. */
 #define DS3231_ERR_CMD				-0x0A /**< Failed to complete command. */
-#define DS3231_ERR_INVALID_SEC		-0x0B /**< Invalid value for seconds. */
+#define DS3231_ERR_SET_SECONDS		-0x0B /**< Invalid value for seconds. */
+#define DS3231_ERR_SET_MINUTES		-0x0C /**< Invalid value for minutes. */
+#define DS3231_ERR_SET_HOUR			-0x0D /**< Invalid value for hour. */
 
 /* DS3231 address map */
-#define DS3231_ADD_SECONDS			0x00 /**< Upper byte of the temperature register. */
+#define DS3231_ADD_SECONDS			0x00 /**< Seconds register. */
+#define DS3231_ADD_MINUTES			0x01 /**< Minutes register. */
+#define DS3231_ADD_HOUR				0x02 /**< Minutes register. */
 #define DS3231_ADD_TEMP_UB			0x11 /**< Upper byte of the temperature register. */
 #define DS3231_ADD_CONTROL			0x0E /**< Control register. */
 #define DS3231_ADD_STATUS			0x0F /**< Status register. */
@@ -190,6 +194,14 @@ int32_t ds3231SecondsRead(uint8_t *sec, uint32_t timeout);
  * @result 0 of command was successful, an error code otherwise.
  */
 int32_t ds3231SecondsSet(uint8_t sec, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t ds3231MinutesRead(uint8_t *min, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t ds3231MinutesSet(uint8_t min, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t ds3231HoursRead(uint8_t *hour, uint32_t timeout);
+//---------------------------------------------------------------------------
+int32_t ds3231HoursSet(uint8_t hour, uint32_t timeout);
 //---------------------------------------------------------------------------
 //===========================================================================
 

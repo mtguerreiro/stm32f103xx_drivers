@@ -349,29 +349,40 @@ static int32_t i2chlInitializeHW(I2C_TypeDef *i2c){
 //---------------------------------------------------------------------------
 static int32_t i2chlInitializeSW(I2C_TypeDef *i2c){
 
-#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 
+	if( i2c == I2C1 ){
+		i2chlI2C1Control.status = 0;
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 #ifdef I2CHL_CONFIG_I2C1_ENABLED
 #ifdef I2CHL_CONFIG_I2C1_RTOS_EN
-	i2chlI2C1Control.semaphore = xSemaphoreCreateBinary();
-	if( i2chlI2C1Control.semaphore == NULL ) return 1;
-	xSemaphoreGive(i2chlI2C1Control.semaphore);
+		i2chlI2C1Control.semaphore = xSemaphoreCreateBinary();
+		if( i2chlI2C1Control.semaphore == NULL ) return 1;
+		xSemaphoreGive(i2chlI2C1Control.semaphore);
 #else
-	i2chlI2C1Control.semaphore = 0;
+		i2chlI2C1Control.semaphore = 0;
 #endif
 #endif
+#endif
+	}
 
+	else if ( i2c == I2C2 ){
+		i2chlI2C2Control.status = 0;
+#ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 #ifdef I2CHL_CONFIG_I2C2_ENABLED
 #ifdef I2CHL_CONFIG_I2C2_RTOS_EN
-	i2chlI2C2Control.semaphore = xSemaphoreCreateBinary();
-	if( i2chlI2C2Control.semaphore == NULL ) return 1;
-	xSemaphoreGive(i2chlI2C2Control.semaphore);
+		i2chlI2C2Control.semaphore = xSemaphoreCreateBinary();
+		if( i2chlI2C2Control.semaphore == NULL ) return 1;
+		xSemaphoreGive(i2chlI2C2Control.semaphore);
 #else
-	i2chlI2C2Control.semaphore = 0;
+		i2chlI2C2Control.semaphore = 0;
 #endif
 #endif
+#endif
+	}
 
-#endif
+	else{
+		return I2CHL_ERR_INVALID_I2C;
+	}
 
 	return 0;
 }
@@ -412,7 +423,7 @@ void I2C1_EV_IRQHandler(void){
 
 	uint16_t sr1, sr2;
 
-	gpioOutputSet(GPIOA, GPIO_P0);
+	//gpioOutputSet(GPIOA, GPIO_P0);
 
 	sr1 = I2C1->SR1;
 
@@ -490,7 +501,7 @@ void I2C1_EV_IRQHandler(void){
 		}
 	}
 
-	gpioOutputReset(GPIOA, GPIO_P0);
+	//gpioOutputReset(GPIOA, GPIO_P0);
 }
 #endif
 //---------------------------------------------------------------------------

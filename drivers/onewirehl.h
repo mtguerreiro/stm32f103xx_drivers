@@ -25,7 +25,7 @@
 //===========================================================================
 /* Settings */
 #define OWHL_CONFIG_FREERTOS_EN		1 /** Enables FreeRTOS integration. */
-#define OWHL_CONFIG_TIM_IRQ_PRIO	0x06 /** Timer interrupt priority. */
+#define OWHL_CONFIG_TIM_IRQ_PRIO	0x08 /** Timer interrupt priority. */
 
 /* Error codes */
 #define OWHL_ERR_SW_INIT			-0x01 /**< Failed to initialize semaphore. */

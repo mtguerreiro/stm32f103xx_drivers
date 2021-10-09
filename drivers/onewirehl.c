@@ -263,7 +263,7 @@ static void onewirehlInitializeTimer(void){
 	NVIC_EnableIRQ(TIM2_IRQn);
 
 	/* Sets timer */
-	RCC->APB1ENR = RCC_APB1ENR_TIM2EN;
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 	TIM2->CR1 = TIM_CR1_OPM | TIM_CR1_URS;
 	TIM2->DIER = TIM_DIER_UIE;
 }

@@ -306,6 +306,208 @@ int32_t ds3231HoursSet(uint8_t hour, uint32_t timeout){
 	return ret;
 }
 //---------------------------------------------------------------------------
+int32_t ds3231DayOfWeekRead(uint8_t *day, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231RegisterRead(DS3231_ADD_DAYOFWEEK, day, timeout);
+	if( ret != 0 ) return ret;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DayOfWeekSet(uint8_t day, uint32_t timeout){
+
+	int32_t ret;
+
+	if( (day == 0) || (day > 7) ) return DS3231_ERR_SET_DAYOFWEEK;
+
+	ret = ds3231RegisterWrite(DS3231_ADD_DAYOFWEEK, &day, 1, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DayRead(uint8_t *day, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t dayreg;
+
+	ret = ds3231RegisterRead(DS3231_ADD_DAY, &dayreg, timeout);
+	if( ret != 0 ) return ret;
+
+	*day = ds3231ConvertRegDec(dayreg);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DaySet(uint8_t day, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t dayreg;
+
+	if( day > 31 ) return DS3231_ERR_SET_DAY;
+
+	dayreg = ds3231ConvertDecReg(day);
+
+	ret = ds3231RegisterWrite(DS3231_ADD_DAY, &dayreg, 1, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231MonthRead(uint8_t *month, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t monthreg;
+
+	ret = ds3231RegisterRead(DS3231_ADD_MONTH, &monthreg, timeout);
+	if( ret != 0 ) return ret;
+
+	*month = ds3231ConvertRegDec(monthreg);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231MonthSet(uint8_t month, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t monthreg;
+
+	if( (month == 0) || (month > 12) ) return DS3231_ERR_SET_MONTH;
+
+	monthreg = ds3231ConvertDecReg(month);
+
+	ret = ds3231RegisterWrite(DS3231_ADD_MONTH, &monthreg, 1, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231YearRead(uint8_t *year, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t yearreg;
+
+	ret = ds3231RegisterRead(DS3231_ADD_YEAR, &yearreg, timeout);
+	if( ret != 0 ) return ret;
+
+	*year = ds3231ConvertRegDec(yearreg);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231YearSet(uint8_t year, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t yearreg;
+
+	if( year > 99 ) return DS3231_ERR_SET_YEAR;
+
+	yearreg = ds3231ConvertDecReg(year);
+
+	ret = ds3231RegisterWrite(DS3231_ADD_YEAR, &yearreg, 1, timeout);
+
+	return ret;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231TimeRead(ds3231DateTime_t *time, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231SecondsRead(&time->seconds, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_SEC;
+
+	ret = ds3231MinutesRead(&time->minutes, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_MIN;
+
+	ret = ds3231HoursRead(&time->hours, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_HOUR;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231TimeSet(ds3231DateTime_t *datetime, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231SecondsSet(datetime->seconds, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_SEC;
+
+	ret = ds3231MinutesSet(datetime->minutes, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_MIN;
+
+	ret = ds3231HoursSet(datetime->hours, timeout);
+	if( ret != 0 ) return DS3231_ERR_TIME_HOUR;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DateRead(ds3231DateTime_t *datetime, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t year;
+
+	ret = ds3231DayOfWeekRead(&datetime->dayofweek, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_DOW;
+
+	ret = ds3231DayRead(&datetime->day, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_DAY;
+
+	ret = ds3231MonthRead(&datetime->month, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_MONTH;
+
+	ret = ds3231YearRead(&year, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_YEAR;
+	datetime->year = (uint16_t)(year + 2000U);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DateSet(ds3231DateTime_t *datetime, uint32_t timeout){
+
+	int32_t ret;
+	uint8_t year;
+
+	ret = ds3231DayOfWeekSet(datetime->dayofweek, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_DOW;
+
+	ret = ds3231DaySet(datetime->day, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_DAY;
+
+	ret = ds3231MonthSet(datetime->month, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_MONTH;
+
+	year = (uint8_t)(datetime->year - 2000U);
+	ret = ds3231YearSet(year, timeout);
+	if( ret != 0 ) return DS3231_ERR_DATE_YEAR;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DateTimeRead(ds3231DateTime_t *datetime, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231TimeRead(datetime, timeout);
+	if( ret != 0 ) return ret;
+
+	ret = ds3231DateRead(datetime, timeout);
+	if( ret != 0 ) return ret;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds3231DateTimeSet(ds3231DateTime_t *datetime, uint32_t timeout){
+
+	int32_t ret;
+
+	ret = ds3231TimeSet(datetime, timeout);
+	if( ret != 0 ) return ret;
+
+	ret = ds3231DateSet(datetime, timeout);
+	if( ret != 0 ) return ret;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================
@@ -457,7 +659,7 @@ static uint8_t ds3231ConvertRegDec(uint8_t reg){
 	uint8_t decUn, decDez, decData;
 
 	decUn = reg & 0x0F;
-	decDez = (reg & 0x70) >> 4;
+	decDez = (reg & 0xF0) >> 4;
 
 	decData = (uint8_t)(decUn + (decDez * 10));
 

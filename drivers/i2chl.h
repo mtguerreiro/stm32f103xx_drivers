@@ -40,6 +40,7 @@
 #define I2CHL_ERR_WAIT_TO						-0x03 /**< Timed-out while waiting. */
 #define I2CHL_ERR_TX_0							-0x04 /**< Trying to transmit 0 bytes. */
 #define I2CHL_ERR_RX_0							-0x05 /**< Trying to receive 0 bytes. */
+#define I2CHL_BUSY_RECOVER_ERR					-0x06 /**< Couldn't recover from busy locked state. */
 
 #if defined(I2CHL_CONFIG_I2C1_RTOS_EN) || defined(I2CHL_CONFIG_I2C2_RTOS_EN)
 #define I2CHL_CONFIG_FREE_RTOS_ENABLED
@@ -112,6 +113,16 @@ int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout);
  * @result 0 if last transaction was successful, 1 otherwise.
  */
 int32_t i2chlStatusLastTransaction(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
+/**
+ * @brief Attempts to recover the I2C peripheral from a wrong busy condition.
+ *
+ * According to the errata, the I2C busy flag may lock on a busy state, even
+ * though the data and clock lines are free. This function performs the
+ * procedure given in the erratasheet, in order to recover from this locked
+ * condition.
+ */
+int32_t i2chlBusyRecover(I2C_TypeDef *i2c);
 //---------------------------------------------------------------------------
 //===========================================================================
 

@@ -13,6 +13,9 @@
 /* Drivers */
 #include "gpio.h"
 
+/* Libs */
+#include "delays.h"
+
 #ifdef I2CHL_CONFIG_FREE_RTOS_ENABLED
 /* Kernel */
 #include "FreeRTOS.h"
@@ -101,6 +104,21 @@ static int32_t i2chlInitializeSW(I2C_TypeDef *i2c);
  * @result Pointer to structure or 0 if structure was not found.
  */
 static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
+/**
+ * @brief Resets the SCL and SDA lines.
+ *
+ * @param i2c I2C
+ * @result 0 if procedure was completed, an error code otherwise.
+ */
+static int32_t i2chlLinesReset(I2C_TypeDef *i2c);
+//---------------------------------------------------------------------------
+/**
+ * @brief Initializes the register of the selected I2C.
+ *
+ * @param i2c I2C to be initialized.
+ */
+static void i2chlInitializeHWRegs(I2C_TypeDef *i2c);
 //---------------------------------------------------------------------------
 //===========================================================================
 
@@ -240,6 +258,36 @@ int32_t i2chlStatusLastTransaction(I2C_TypeDef *i2c){
 	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
 
 	if( i2chlControl->status & I2CHL_STATUS_COMM ) return 1;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t i2chlBusyRecover(I2C_TypeDef *i2c){
+
+	i2chlControl_t *i2chlControl = 0;
+
+	i2chlControl = i2chlGetControlStruct(i2c);
+	if( i2chlControl == 0 ) return I2CHL_ERR_INVALID_I2C;
+
+	/* Disables I2C peripheral */
+	i2c->CR1 &= (uint16_t)(~I2C_CR1_PE);
+	delaysus(10);
+
+	/* Resets the lines */
+	i2chlLinesReset(i2c);
+
+	/* Resets the peripheral */
+	i2c->CR1 |= I2C_CR1_SWRST;
+	delaysus(10);
+	i2c->CR1 &= (uint16_t)(~I2C_CR1_SWRST);
+	delaysus(10);
+
+	/* Sets everything again */
+	i2chlInitializeHWRegs(i2c);
+	delaysus(10);
+
+	/* Checks if the busy flag is still set */
+	if( i2c->SR2 & I2C_SR2_BUSY ) return I2CHL_BUSY_RECOVER_ERR;
 
 	return 0;
 }
@@ -409,6 +457,101 @@ static i2chlControl_t* i2chlGetControlStruct(I2C_TypeDef *i2c){
 	}
 
 	return i2chlControl;
+}
+//---------------------------------------------------------------------------
+static int32_t i2chlLinesReset(I2C_TypeDef *i2c){
+
+	GPIO_TypeDef *portSDA = 0;
+	uint16_t portSDAPin = 0;
+	GPIO_TypeDef *portSCL = 0;
+	uint16_t portSCLPin = 0;
+
+	uint32_t _i2c = (uint32_t)i2c;
+
+	switch(_i2c){
+
+#ifdef I2CHL_CONFIG_I2C1_ENABLED
+	case I2C1_BASE:
+		/* Selects GPIO pins*/
+		portSDA = GPIOB;
+		portSDAPin = GPIO_P7;
+		portSCL = GPIOB;
+		portSCLPin = GPIO_P6;
+		break;
+#endif
+
+#ifdef I2CHL_CONFIG_I2C2_ENABLED
+	case I2C2_BASE:
+		/* Selects GPIO pins*/
+		portSDA = GPIOB;
+		portSDAPin = GPIO_P11;
+		portSCL = GPIOB;
+		portSCLPin = GPIO_P10;
+		break;
+#endif
+
+	default:
+		return I2CHL_ERR_INVALID_I2C;
+	}
+
+	/* Sets GPIO pins */
+	gpioPortEnable(portSCL);
+	if(portSDA != portSCL) gpioPortEnable(portSDA);
+	gpioConfig(portSDA, portSDAPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_OPEN_DRAIN);
+	gpioConfig(portSCL, portSCLPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_OPEN_DRAIN);
+
+	/* Sets lines to high */
+	gpioOutputSet(portSDA, portSDAPin);
+	gpioOutputSet(portSCL, portSCLPin);
+	delaysus(10);
+
+	/* Clears SDA first, then SCL */
+	gpioOutputReset(portSDA, portSDAPin);
+	delaysus(10);
+	gpioOutputReset(portSCL, portSCLPin);
+	delaysus(10);
+
+	/* Now sets them to high, SDA first, then SCL */
+	gpioOutputSet(portSDA, portSDAPin);
+	delaysus(10);
+	gpioOutputSet(portSCL, portSCLPin);
+	delaysus(10);
+
+	/* Sets pins back to alternate functions */
+	gpioConfig(portSDA, portSDAPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_OPEN_DRAIN);
+	gpioConfig(portSCL, portSCLPin, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_OPEN_DRAIN);
+	delaysus(10);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+static void i2chlInitializeHWRegs(I2C_TypeDef *i2c){
+
+	/*
+	 * Puts the I2C peripheral under reset and sets it. CR2 is set with the
+	 * clock frequency supplied by APB to the I2C peripheral. Note that both
+	 * I2C1 and I2C2 are clocked from APB1, which runs at a maximum of
+	 * 36 MHz. So, we set that as the frequency of the I2C peripheral.
+	 */
+	i2c->CR1 = I2C_CR1_SWRST;
+	i2c->CR1 = 0;
+	i2c->CR2 = I2C_CR2_ITEVTEN | I2C_CR2_ITERREN | (36);
+
+	/*
+	 * Sets the CCR with a value of 180, such that the clock frequency for
+	 * if the I2C bus is 100 kHz
+	 */
+	i2c->CCR = 90;
+	//i2c->CCR = 180;
+
+	/*
+	 * Sets the maximum rise time of the SCL line. For now, it is hard-coded
+	 * as 1us.
+	 */
+	i2c->TRISE = 36;
+
+	/* Enables the peripheral */
+	i2c->CR1 = I2C_CR1_PE;
 }
 //---------------------------------------------------------------------------
 //===========================================================================

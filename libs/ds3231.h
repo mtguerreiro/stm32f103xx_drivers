@@ -417,6 +417,16 @@ int32_t ds3231DateTimeRead(ds3231DateTime_t *datetime, uint32_t timeout);
  */
 int32_t ds3231DateTimeSet(ds3231DateTime_t *datetime, uint32_t timeout);
 //---------------------------------------------------------------------------
+/**
+ * @brief Attempts to recover the I2C peripheral from a wrong busy condition.
+ *
+ * According to the errata, the I2C busy flag may lock on a busy state, even
+ * though the data and clock lines are free. This function performs the
+ * procedure given in the erratasheet, in order to recover from this locked
+ * condition.
+ */
+int32_t ds3231I2CBusyRecover(void);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 #endif /* LIBS_DS3231_H_ */

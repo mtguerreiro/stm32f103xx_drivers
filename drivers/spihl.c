@@ -228,6 +228,23 @@ int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 
 	return 0;
 }
+//---------------------------------------------------------------------------
+int32_t spihlWaitWhileBusy(SPI_TypeDef *spi, uint32_t timeout){
+
+	spihlControl_t *spiControl = 0;
+
+	spiControl = spihlGetControlStruct(spi);
+	if( spiControl == 0 ) return SPIHL_ERR_INVALID_SPI;
+
+	while( (spiControl->busy != 0) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+
+	while( (spi->SR & SPI_SR_BSY ) && (timeout != 0 ) ) timeout--;
+	if( timeout == 0 ) return SPIHL_ERR_BUSY;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 //===========================================================================

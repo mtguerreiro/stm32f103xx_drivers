@@ -154,6 +154,16 @@ int32_t spihlRead(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 int32_t spihlReadBare(SPI_TypeDef *spi, uint8_t *buffer, uint32_t nbytes,
 				      uint32_t timeout);
 //---------------------------------------------------------------------------
+/**
+ * @brief Waits until the specified SPI becomes free.
+ *
+ * @param spi SPI to wait
+ * @param timeout Timeout to wait
+ * @result 0 if SPI become free before timeout expired, another value
+ * 		   otherwise.
+ */
+int32_t spihlWaitWhileBusy(SPI_TypeDef *spi, uint32_t timeout);
+//---------------------------------------------------------------------------
 //===========================================================================
 
 #endif /* DRIVERS_SPIHL_H_ */

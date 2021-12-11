@@ -15,16 +15,21 @@
 
 /* Device */
 #include "stm32f10x.h"
+
+/* Drivers */
+#include "gpio.h"
 //===========================================================================
 
 //===========================================================================
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
 /* Error codes */
-#define SDC_ERR_INIT_HW			-0x01 /** Failed to initialize the hardware. */
-#define SDC_ERR_INIT_SW			-0x02 /** Failed to initialize the hardware. */
+#define SDC_ERR_INIT_HW				-0x01 /** Failed to initialize the hardware. */
+#define SDC_ERR_INIT_SW				-0x02 /** Failed to initialize the hardware. */
 
-#define SDC_CONFIG_SPI			SPI1
+#define SDC_CONFIG_SPI				SPI1
+#define SDC_CONFIG_SPI_CS_PORT		GPIOA
+#define SDC_CONFIG_SPI_CS_PIN		GPIO_P4
 //===========================================================================
 
 //===========================================================================

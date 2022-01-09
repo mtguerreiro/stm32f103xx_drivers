@@ -23,6 +23,7 @@
 #define SDC_ERR_INIT_SW				-0x02		/** Failed to initialize the SD card. */
 #define SDC_ERR_NO_RESP				-0x03		/** No response from the SD card. */
 #define SDC_ERR_UNEXPECTED_RESP		-0x04		/** Unexpected response from the SD card. */
+#define SDC_ERR_WRITE_INVALID		-0x05		/** Write command rejected by card. */
 #define SDC_ERR_SPI_WRITE			-0x05		/** SPI write function failed. */
 #define SDC_ERR_SPI_READ			-0x06		/** SPI read function failed. */
 
@@ -41,9 +42,13 @@ typedef void(*sdcCSReset_t)(void);
 //===========================================================================
 //---------------------------------------------------------------------------
 int32_t sdcInitialize(void);
+
 void sdcSetSPI(sdcSPIWrite_t spiwrite, sdcSPIRead_t spiread,
 			   sdcCSSet_t csset, sdcCSReset_t csreset);
+
 int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks);
+int32_t sdcWriteBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks);
+
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 //===========================================================================

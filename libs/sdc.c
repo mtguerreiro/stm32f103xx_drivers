@@ -194,16 +194,6 @@ int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks){
 		sdcControl.csSet();
 		return SDC_ERR_UNEXPECTED_RESP;
 	}
-//	status = sdcControl.spiRead(&data, 1, 10000);
-//	if( status != 0 ){
-//		sdcControl.csSet();
-//		return status;
-//	}
-//
-//	if( data != 0 ){
-//		sdcControl.csSet();
-//		return SDC_ERR_UNEXPECTED_RESP;
-//	}
 
 	i = nblocks;
 	while(i--){
@@ -255,7 +245,7 @@ int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks){
 	}
 
 	/* Waits for 0x00 response */
-	k = 100;
+	k = 1000;
 	while(k--){
 		status = sdcControl.spiRead(&data, 1, 10000);
 		if( status != 0 ){
@@ -264,10 +254,152 @@ int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks){
 		}
 		if( data == 0x00 ) break;
 	}
+	sdcControl.csSet();
+
+	if( k == 0 ) return SDC_ERR_NO_RESP;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t sdcWriteBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks){
+
+	uint32_t k, i;
+	uint8_t cmd = 24;
+	int32_t status;
+	uint8_t data = 0xFF;
+	uint8_t dataToken = 0xFE;
+
+	if( nblocks != 1 ){
+		cmd = 25;
+		dataToken = 0xFC;
+	}
+
+	sdcControl.csReset();
+
+	/* Sends write block command and reads response */
+	status = sdcSendCMD(cmd, address);
+	if( status != 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+
+	/* Waits for 0x00 response */
+	k = 100;
+	while(k--){
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		if( data != 0xFF ) break;
+	}
 	if( k == 0 ){
 		sdcControl.csSet();
 		return status;
 	}
+	if( data != 0 ){
+		sdcControl.csSet();
+		return SDC_ERR_UNEXPECTED_RESP;
+	}
+
+	i = nblocks;
+	while(i--){
+
+		/* Sends a dummy 0xFF before data token */
+		data = 0xFF;
+		status = sdcControl.spiWrite(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		/* Sends data token */
+		status = sdcControl.spiWrite(&dataToken, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		/* Sends block data */
+		status = sdcControl.spiWrite(buffer, SDC_CONFIG_BLOCK_SIZE, 1000000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		/* Sends the 2 CRC byte */
+		sdcControl.spiWrite(&data, 1, 10000);
+		status = sdcControl.spiWrite(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		/* Checks for the card's response */
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+		if( (data & 0x0E) != 0x04 ){
+			sdcControl.csSet();
+			return SDC_ERR_WRITE_INVALID;
+		}
+
+		/* Waits until card is not busy anymore */
+		k = 1000;
+		data = 0;
+		while(k--){
+			status = sdcControl.spiRead(&data, 1, 10000);
+			if( (status != 0) || (data == 0xFF) ) break;
+		}
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+		if( k == 0 ){
+			sdcControl.csSet();
+			return SDC_ERR_NO_RESP;
+		}
+
+		buffer += SDC_CONFIG_BLOCK_SIZE;
+	}
+
+	if( nblocks == 1 ){
+		sdcControl.csSet();
+		return 0;
+	}
+
+	/* Sends stop token */
+	data = 0xFD;
+	status = sdcControl.spiWrite(&data, 1, 10000);
+	if( status != 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+
+	/* Sends a dummy 0xFF before waiting on busy response */
+	data = 0xFF;
+	status = sdcControl.spiWrite(&data, 1, 10000);
+	if( status != 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+
+	/* Waits until the card is no longer busy */
+	k = 1000;
+	while(k--){
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+		if( data == 0xFF ) break;
+	}
+	sdcControl.csSet();
+
+	if( k == 0 ) return SDC_ERR_NO_RESP;
 
 	return 0;
 }

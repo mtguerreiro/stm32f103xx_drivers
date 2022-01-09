@@ -3,6 +3,7 @@
  *
  *  Created on: 10 de dez de 2021
  *      Author: marco
+ *
  */
 
 //===========================================================================
@@ -143,7 +144,7 @@ int32_t sdcInitialize(void){
 
 	/* Last step now, we set block addressing mode */
 	sdcControl.csReset();
-	status = sdcSendCMD(16, 0x00000200);
+	status = sdcSendCMD(16, SDC_CONFIG_BLOCK_SIZE);
 	if( status != 0 ){
 		sdcControl.csSet();
 		return SDC_ERR_SPI_WRITE;
@@ -152,6 +153,121 @@ int32_t sdcInitialize(void){
 	sdcControl.csSet();
 	if( status != 0 ) return SDC_ERR_SPI_READ;
 	if( buffer[0] != 0x00 ) return SDC_ERR_INIT;
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks){
+
+	uint32_t k, i;
+	uint8_t cmd = 17;
+	int32_t status;
+	uint8_t data = 0xFF;
+
+	if( nblocks != 1 ) cmd = 18;
+
+	sdcControl.csReset();
+
+	/* Sends read block command and reads response */
+	status = sdcSendCMD(cmd, address);
+	if( status != 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+
+	/* Waits for 0x00 response */
+	k = 100;
+	while(k--){
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		if( data != 0xFF ) break;
+	}
+	if( k == 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+	if( data != 0 ){
+		sdcControl.csSet();
+		return SDC_ERR_UNEXPECTED_RESP;
+	}
+//	status = sdcControl.spiRead(&data, 1, 10000);
+//	if( status != 0 ){
+//		sdcControl.csSet();
+//		return status;
+//	}
+//
+//	if( data != 0 ){
+//		sdcControl.csSet();
+//		return SDC_ERR_UNEXPECTED_RESP;
+//	}
+
+	i = nblocks;
+	while(i--){
+
+		/* Waits for data token (should be 0xFE) */
+		k = 1000;
+		data = 0;
+		while(k--){
+			status = sdcControl.spiRead(&data, 1, 10000);
+			if( (status != 0) || (data == 0xFE) ) break;
+		}
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+		if( k == 0 ){
+			sdcControl.csSet();
+			return SDC_ERR_NO_RESP;
+		}
+
+		/* Reads block data */
+		status = sdcControl.spiRead(buffer, SDC_CONFIG_BLOCK_SIZE, 1000000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		/* Reads the 2 CRC byte */
+		sdcControl.spiRead(&data, 1, 10000);
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+
+		buffer += SDC_CONFIG_BLOCK_SIZE;
+	}
+
+	if( nblocks == 1 ){
+		sdcControl.csSet();
+		return 0;
+	}
+
+	/* Sends CMD 12 to stop transaction */
+	status = sdcSendCMD(12, 0x00000000);
+	if( status != 0 ){
+		sdcControl.csSet();
+		return status;
+	}
+
+	/* Waits for 0x00 response */
+	k = 100;
+	while(k--){
+		status = sdcControl.spiRead(&data, 1, 10000);
+		if( status != 0 ){
+			sdcControl.csSet();
+			return status;
+		}
+		if( data == 0x00 ) break;
+	}
+	if( k == 0 ){
+		sdcControl.csSet();
+		return status;
+	}
 
 	return 0;
 }

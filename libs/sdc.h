@@ -27,6 +27,7 @@
 #define SDC_ERR_SPI_READ			-0x06		/** SPI read function failed. */
 
 #define SDC_CONFIG_CRC7_POLY		(0x89<<1) 	/** Polynomial for CRC computation. */
+#define SDC_CONFIG_BLOCK_SIZE		512
 
 typedef int32_t(*sdcHWInit_t)(void *params);
 typedef int32_t(*sdcSPIWrite_t)(uint8_t *buffer, uint32_t nbytes, uint32_t timeout);
@@ -42,6 +43,7 @@ typedef void(*sdcCSReset_t)(void);
 int32_t sdcInitialize(void);
 void sdcSetSPI(sdcSPIWrite_t spiwrite, sdcSPIRead_t spiread,
 			   sdcCSSet_t csset, sdcCSReset_t csreset);
+int32_t sdcReadBlock(uint32_t address, uint8_t *buffer, uint32_t nblocks);
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 //===========================================================================

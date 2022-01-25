@@ -111,11 +111,30 @@ int32_t ds18b20StartConversion(uint32_t to){
 	return 0;
 }
 //---------------------------------------------------------------------------
-int32_t ds18b20ReadTemp(uint8_t *dez, uint16_t *dec, uint32_t to){
+int32_t ds18b20ReadTemp(int8_t *temp, uint32_t to){
 
 	int32_t ret;
 	uint8_t buffer[9];
-	uint8_t tempDez;
+
+	ret = ds18b20ReadSP(buffer, to);
+	if( ret != 0 ) return ret;
+
+	/*
+	 * The integer part of the temperature is:
+	 * 	tempInt = (LSB_B1 << 4) | (MSB_B0 >> 4),
+	 * where MSB_B0 are the 4 most significant bits of byte 0, and LSB_B1
+	 * are the 4 least significant bits of byte 1.
+	 */
+	*temp = (int8_t)((buffer[0] & 0xF0U) >> 4U) | ((buffer[1] & 0x0FU) << 4U);
+
+	return 0;
+}
+//---------------------------------------------------------------------------
+int32_t ds18b20ReadTempFull(int8_t *dez, uint16_t *dec, uint32_t to){
+
+	int32_t ret;
+	uint8_t buffer[9];
+	int8_t tempDez;
 	uint16_t tempDec;
 
 	ret = ds18b20ReadSP(buffer, to);
@@ -127,7 +146,7 @@ int32_t ds18b20ReadTemp(uint8_t *dez, uint16_t *dec, uint32_t to){
 	 * where MSB_B0 are the 4 most significant bits of byte 0, and LSB_B1
 	 * are the 4 least significant bits of byte 1.
 	 */
-	tempDez = (uint8_t)((buffer[0] & 0xF0U) >> 4U) | ((buffer[1] & 0x0FU) << 4U);
+	tempDez = (int8_t)((buffer[0] & 0xF0U) >> 4U) | ((buffer[1] & 0x0FU) << 4U);
 
 	/*
 	 * The decimal part of the temperature is:

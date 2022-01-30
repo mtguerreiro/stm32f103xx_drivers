@@ -243,7 +243,7 @@ int32_t i2chlWaitWhileBusy(I2C_TypeDef *i2c, uint32_t timeout){
 		if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
 	}
 #else
-	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->busy == 1)) && (timeout != 0) ) timeout--;
+	while( ((i2c->SR2 & I2C_SR2_BUSY) || (i2chlControl->status & I2CHL_STATUS_BUSY)) && (timeout != 0) ) timeout--;
 	if( timeout == 0 ) return I2CHL_ERR_WAIT_TO;
 #endif
 

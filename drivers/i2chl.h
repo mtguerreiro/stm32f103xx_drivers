@@ -28,7 +28,7 @@
 #define I2CHL_CONFIG_I2C2_ENABLED			 	/**< Enables I2C2. */
 
 //#define I2CHL_CONFIG_I2C1_RTOS_EN				/**< Enables FreeRTOS integration for I2C1. */
-#define I2CHL_CONFIG_I2C2_RTOS_EN				/**< Enables FreeRTOS integration for I2C2. */
+//#define I2CHL_CONFIG_I2C2_RTOS_EN				/**< Enables FreeRTOS integration for I2C2. */
 
 /* Priority for I2C interrupt */
 #define I2CHL_CONFIG_I2C1_NVIC_PRIO				0x06 /**< NVIC I2C1 priority. */

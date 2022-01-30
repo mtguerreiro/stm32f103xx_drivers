@@ -24,7 +24,7 @@
 /*------------------------------ Definitions ------------------------------*/
 //===========================================================================
 /* Settings */
-#define OWHL_CONFIG_FREERTOS_EN		1 /** Enables FreeRTOS integration. */
+#define OWHL_CONFIG_FREERTOS_EN		0 /** Enables FreeRTOS integration. */
 #define OWHL_CONFIG_TIM_IRQ_PRIO	0x08 /** Timer interrupt priority. */
 
 /* Error codes */

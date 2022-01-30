@@ -44,7 +44,7 @@
 //===========================================================================
 /* Enable UARTs */
 #define UARTHL_CONFIG_UART1_ENABLED 		/**< Enables UART1. */
-#define UARTHL_CONFIG_UART1_RTOS_EN 		/**< Enables FreeRTOS integration for UART1. */
+//#define UARTHL_CONFIG_UART1_RTOS_EN 		/**< Enables FreeRTOS integration for UART1. */
 
 //#define UARTHL_CONFIG_UART2_ENABLED 		/**< Enables UART2. */
 

@@ -10,15 +10,15 @@
 #ifndef LIBS_PULSE_COUNTER_H_
 #define LIBS_PULSE_COUNTER_H_
 
-//=============================
-/*--------- Includes --------*/
-//=============================
+//===========================================================================
+/*------------------------------- Includes --------------------------------*/
+//===========================================================================
 #include <stdint.h>
-//=============================
+//===========================================================================
 
-//=============================
-/*--------- Defines ---------*/
-//=============================
+//===========================================================================
+/*-------------------------------- Defines --------------------------------*/
+//===========================================================================
 /** @brief Function pointer for the frequency meter hook. */
 typedef void(*pulseCounterHook_t)(uint32_t);
 
@@ -27,14 +27,23 @@ typedef void(*pulseCounterHook_t)(uint32_t);
  * The hook is called each time the freqMeter measures a new frequency.
  * The counter's value is passed to the hook.
  */
-#define configPULSE_COUNTER_USE_HOOK	0
-//=============================
+#define PULSE_CONFIG_COUNTER_USE_HOOK		1
 
+/** @brief Defines which edge should trigger an event.
+ *
+ * If 0, rising edge triggers an event. If 1 (or any value other than 0),
+ * the falling edge triggers an event.
+ */
+#define PULSE_CONFIG_EDGE_DETECT			0
 
-//=============================
-/*-------- Functions --------*/
-//=============================
-//-----------------------------
+/** @brief Defines interrupt priority of pulse detection. */
+#define PULSE_CONFIG_IRQ_PRIO				0x06
+//===========================================================================
+
+//===========================================================================
+/*------------------------------- Functions -------------------------------*/
+//===========================================================================
+//---------------------------------------------------------------------------
 /** @brief Initializes the input and timer for the pulse counter.
  *
  * @param hook Function to be called at each new pulse is detected. This
@@ -42,16 +51,22 @@ typedef void(*pulseCounterHook_t)(uint32_t);
  * 	with the counter's value as a 32-bit variable.
  */
 void pulseCounterInitialize(pulseCounterHook_t hook);
-//-----------------------------
+//---------------------------------------------------------------------------
 /** @brief Starts the pulse counter. */
 void pulseCounterStart(void);
-//-----------------------------
+//---------------------------------------------------------------------------
 /** @brief Stops the pulse counter. */
 void pulseCounterStop(void);
-//-----------------------------
+//---------------------------------------------------------------------------
 /** @brief Gets the current pulse count. */
 uint32_t pulseCounterGet(void);
-//-----------------------------
-//=============================
+//---------------------------------------------------------------------------
+/** @brief Sets the current pulse count. */
+void pulseCounterSet(uint32_t value);
+//---------------------------------------------------------------------------
+/** @brief Clears the pulse counter. */
+void pulseCounterClear(void);
+//---------------------------------------------------------------------------
+//===========================================================================
 
 #endif /* LIBS_PULSE_COUNTER_H_ */

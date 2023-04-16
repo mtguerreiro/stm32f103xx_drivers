@@ -22,6 +22,10 @@
  *		- Added RX and TX initialization functions
  *		- Documentation
  *
+ *	-v0.1.2:
+ *		- Decoupling nrf24l01 from MCU-specific functions
+ *		- Updating documentation
+ *
  * Melhorias
  * 		- Após enviar um comando, realizar a leitura para ver
  * 		se foi configurado corretamente
@@ -40,6 +44,12 @@
  * 			configurada no registrador do payload size for correta. Uma
  * 			melhoria é ler esse registrador para não ser necessário informar
  * 			a quantidade a ser lida ao chamar a função nrf24l01Read.
+ * 		- É possível transmitir dados durante o auto ack. Isso facilitaria
+ * 		a comunicação bidirecional, sem ter que trocar o rádio de TX para RX
+ * 		manualmente.
+ * 		- É possível transmitir uma payload de tamanho variável. No momento, o
+ * 		tamanho da payload precisa ser o mesmo no TX e RX, mas é possível
+ * 		desacoplar isso.
  *
  *  Created on: Dec 9, 2018
  *      Author: Marco
@@ -83,12 +93,88 @@
 #define NRF24L01_REG_RX_PW_P5		0x16
 #define NRF24L01_REG_FIFO_STATUS	0x17
 
+/** @brief Writes data through SPI.
+ *
+ *	@param buffer Pointer to buffer holding data.
+ *	@param size Number of bytes to write.
+ *	@param to Timeout.
+ *
+ *	@return 0 of write was successful, another value otherwise.
+ */
 typedef uint8_t (*nrf24l01SpiWrite_t)(uint8_t *buffer, uint16_t size, uint32_t to);
+
+ /** @brief Reads data from SPI.
+  *
+  *	@param buffer Pointer to buffer to hold data read.
+  *	@param size Number of bytes to read.
+  *	@param to Timeout.
+  *
+  *	@return 0 of read was successful, another value otherwise.
+  */
 typedef uint8_t (*nrf24l01SpiRead_t)(uint8_t *buffer, uint16_t size, uint32_t to);
-typedef uint8_t (*nrf24l01CSNWrite_t)(uint8_t level);
-typedef uint8_t (*nrf24l01CEWrite_t)(uint8_t level);
+
+/** @brief Writes to the CSN pin.
+ *
+ * @param level Level to write to pin (0 - low, 1 - high).
+ */
+typedef void (*nrf24l01CSNWrite_t)(uint8_t level);
+
+/** @brief Writes to the CE pin.
+ *
+ * @param level Level to write to pin (0 - low, 1 - high).
+ */
+typedef void (*nrf24l01CEWrite_t)(uint8_t level);
+
+/** @brief Generates a delay, in microseconds.
+ *
+ * There are only two places where a delay is required. The first place is
+ * when the radio is powered up. In this case, a delay of approximately 2 ms
+ * is required.
+ *
+ * The second place is when a payload is to be sent. In this case, a high
+ * level pulse must be generated at the CE pin, lasting at least
+ * 10 microseconds.
+ *
+ * @param delay Delay, in microseconds.
+ */
 typedef void (*nrf24l01DelayMicrosec_t)(uint32_t delay);
+
+/** @brief Clears any pending IRQ flag.
+ *
+ * This is related only to how the detection and synchronization of the IRQ
+ * pin is implemented on each specific case.
+ *
+ * For example, a semaphore can be used to pend on the IRQ pin. The pend
+ * function waits until the semaphore is release. The semaphore is released
+ * when an interrupt on the IRQ pin is detected. At the interrupt handler,
+ * the semaphore is released and wakes the function that was pending on it.
+ *
+ * However, for this to work correctly, the semaphore must be taken before
+ * the pending function is called. If the semaphore is not taken, the pend
+ * function will immediately return, although there was no change on the
+ * IRQ pin.
+ *
+ * This function is called before any transmission reception event, and this
+ * function should implement any pre-pend synchronism here.
+ */
 typedef void (*nrf24l01IrqClear_t)(void);
+
+/** @brief Pends on the IRQ pin.
+ *
+ * This is related only to how the detection and synchronization of the IRQ
+ * pin is implemented on each specific case.
+ *
+ * For example, a semaphore can be used to pend on the IRQ pin. The pend
+ * function waits until the semaphore is release. The semaphore is released
+ * when an interrupt on the IRQ pin is detected. At the interrupt handler,
+ * the semaphore is released and wakes the function that was pending on it.
+ *
+ * This functions is called just after a transmission or receive event. This
+ * function is expected to return only after an interrupt on the IRQ pin was
+ * detected.
+ *
+ * @param to Timeout to wait on pend.
+ */
 typedef uint8_t (*nrf24l01IrqPend_t)(uint32_t to);
 //=============================================================================
 
@@ -102,21 +188,19 @@ typedef uint8_t (*nrf24l01IrqPend_t)(uint32_t to);
  * powering it up/down.
  */
 //-----------------------------------------------------------------------------
-/** @brief Prepares MCU's hardware for the NRF24L01 device.
+/** @brief Initializes the library.
  *
- * Initializes the SPI peripheral (hard-coded as SPI 1) and the CE, CSN and
- * IRQ GPIO pins. CE and CSN can be freely modified in the source file
- * through defines. The IRQ pin, however, is used as external interrupt and
- * should be left with the defined value.
+ * Basically, all the callbacks are set, CSN is set high and CE is set low.
  *
- * @return 0 if hardware was initialized correctly, another value otherwise.
- *         -0x01 if SPI failed to initialized. This will only occurs if
- *          creating the RX and TX queues failed, which can be due to
- *          insufficient memory defined in the heap.
- *         -0x02 if failed to create the NRF's semaphore. This can only occur
- *          if there is insufficient RAM memory.
+ * @param spiWrite Function to write data through SPI.
+ * @param spiRead Function to read data from SPI.
+ * @param csnWrite Function to write to the CSN pin.
+ * @param ceWrite Function to write to the CE pin.
+ * @param delay Function to generate a delay, in microseconds.
+ * @param irqClear Function to clear any pending flags related to the IRQ pin.
+ * @param irqPend Function to pend on the IRQ pin.
  */
-uint8_t nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
+void nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
 		nrf24l01CSNWrite_t csnWrite, nrf24l01CEWrite_t ceWrite,
 		nrf24l01DelayMicrosec_t delay,
 		nrf24l01IrqClear_t irqClear, nrf24l01IrqPend_t irqPend);

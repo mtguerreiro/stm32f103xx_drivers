@@ -223,6 +223,34 @@ int32_t uarthlPendTXSemaphore(USART_TypeDef *uart, uint32_t timeout){
 }
 #endif
 //---------------------------------------------------------------------------
+//int32_t uarthlReinitializeHW(USART_TypeDef *uart, uarthlBR_t baud);
+//---------------------------------------------------------------------------
+//int32_t uarthlChangeBaud(USART_TypeDef *uart, uarthlBR_t baud){
+//
+//	/* Sets baud rate register */
+//	if( baud == UARTHL_BAUD_9600 ){
+//		if( uart == USART1 ) uart->BRR = (uint32_t)0x1D4C;
+//		else uart->BRR = (uint32_t)0xEA6;
+//	}
+//	else if( baud == UARTHL_BAUD_10400 ){
+//		if( uart == USART1 ) uart->BRR = (uint32_t)0x1B0B;
+//		else uart->BRR = (uint32_t)0xD86;
+//	}
+//	else if( baud == UARTHL_BAUD_115200 ){
+//		if( uart == USART1 ) uart->BRR = (uint32_t)0x271;
+//		else uart->BRR = (uint32_t)0x138;
+//	}
+//	else if( baud == UARTHL_BAUD_460800 ){
+//		if( uart == USART1 ) uart->BRR = (uint32_t)0x9C;
+//		else uart->BRR = (uint32_t)0x4E;
+//	}
+//	else{
+//		return UARTHL_ERR_INVALID_BAUD_RATE;
+//	}
+//
+//	return 0;
+//}
+//---------------------------------------------------------------------------
 //===========================================================================
 
 
@@ -329,6 +357,10 @@ static int32_t uarthlInitializeHW(USART_TypeDef *uart, uarthlBR_t baud){
 	if( baud == UARTHL_BAUD_9600 ){
 		if( uart == USART1 ) uart->BRR = (uint32_t)0x1D4C;
 		else uart->BRR = (uint32_t)0xEA6;
+	}
+	else if( baud == UARTHL_BAUD_10400 ){
+		if( uart == USART1 ) uart->BRR = (uint32_t)0x1B0B;
+		else uart->BRR = (uint32_t)0xD86;
 	}
 	else if( baud == UARTHL_BAUD_115200 ){
 		if( uart == USART1 ) uart->BRR = (uint32_t)0x271;

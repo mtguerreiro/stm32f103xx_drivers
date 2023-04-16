@@ -5,7 +5,6 @@
  *      Author: marco
  */
 
-#ifdef RADIO_H_
 //=============================
 /*--------- Includes --------*/
 //=============================
@@ -38,7 +37,7 @@ uint8_t radioInitialize(void){
                           configRADIO_RX_ADDR_B4};
 
     /* Initializes the driver/lib */
-    nrf24l01Initialize();
+    //nrf24l01Initialize();
 
     /* Powers module up. Keeps trying if initialization fails. */
     while( nrf24l01PowerUp()){
@@ -131,5 +130,3 @@ uint8_t radioSetRX(void){
 }
 //-----------------------------
 //=============================
-
-#endif

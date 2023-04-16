@@ -5,60 +5,59 @@
  *      Author: Marco
  */
 
-#ifdef NRF24L01_H_
-//=============================
-/*--------- Includes --------*/
-//=============================
+//=============================================================================
+/*-------------------------------- Includes ---------------------------------*/
+//=============================================================================
 #include "nrf24l01.h"
 
 #include <stdint.h>
 
 /* Kernel */
-#include "FreeRTOS.h"
-#include "semphr.h"
+//#include "FreeRTOS.h"
+//#include "semphr.h"
 
 /* Drivers */
-#include "spi.h"
-#include "gpio.h"
+//#include "spi.h"
+//#include "gpio.h"
 
 /* Libs */
-#include "delays.h"
-//=============================
+//#include "delays.h"
+//=============================================================================
 
-#define configNRF24L01_CE_PORT		GPIOB
-#define configNRF24L01_CE_PIN		GPIO_P0
+//#define configNRF24L01_CE_PORT		GPIOB
+//#define configNRF24L01_CE_PIN		GPIO_P0
+//
+//#define configNRF24L01_CSN_PORT		GPIOB
+//#define configNRF24L01_CSN_PIN		GPIO_P1
+//
+//#define configNRF24L01_IRQ_PORT		GPIOB
+//#define configNRF24L01_IRQ_PIN		GPIO_P3
+//
+//#define configNRF24L01_CE_SET		gpioOutputSet(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
+//#define configNRF24L01_CE_RESET		gpioOutputReset(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
+//
+//#define configNRF24L01_CSN_SET		gpioOutputSet(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN)
+//#define configNRF24L01_CSN_RESET	gpioOutputReset(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN)
 
-#define configNRF24L01_CSN_PORT		GPIOB
-#define configNRF24L01_CSN_PIN		GPIO_P1
 
-#define configNRF24L01_IRQ_PORT		GPIOB
-#define configNRF24L01_IRQ_PIN		GPIO_P3
-
-#define configNRF24L01_CE_SET		gpioOutputSet(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
-#define configNRF24L01_CE_RESET		gpioOutputReset(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN)
-
-#define configNRF24L01_CSN_SET		gpioOutputSet(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN)
-#define configNRF24L01_CSN_RESET	gpioOutputReset(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN)
-
-
-//=============================
-/*-------- Prototypes -------*/
-//=============================
-//-----------------------------
-static void nrf24l01PortInitialize(void);
-//-----------------------------
-static void nrf24l01EXTIInitialize(void);
-//-----------------------------
+//=============================================================================
+/*-------------------------------- Prototypes -------------------------------*/
+//=============================================================================
+//-----------------------------------------------------------------------------
+//static void nrf24l01PortInitialize(void);
+//-----------------------------------------------------------------------------
+//static void nrf24l01EXTIInitialize(void);
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /* Transmitting/receiving functionalities */
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Transmits a payload to the configured TX address.
  *
  * The transmit payload command is sent, along with the data informed. Since
@@ -80,7 +79,7 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
  *
  */
 static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Receives a payload.
  *
  * The NRF's RX buffer is read. It is necessary to inform the number of butes
@@ -94,36 +93,56 @@ static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
  *         not read data from NRF.
  */
 static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size);
-//-----------------------------
-//=============================
+//-----------------------------------------------------------------------------
+//=============================================================================
 
-//=============================
-/*--------- Globals ---------*/
-//=============================
-SemaphoreHandle_t nrf24l01Semaphore;
-//=============================
+//=============================================================================
+/*--------------------------------- Globals ---------------------------------*/
+//=============================================================================
+nrf24l01SpiWrite_t nrfspiWrite;
+nrf24l01SpiRead_t nrfspiRead;
+nrf24l01CSNWrite_t nrfceWrite;
+nrf24l01CEWrite_t nrfcsnWrite;
+nrf24l01DelayMicrosec_t nrfcsDelayMicrosec;
+nrf24l01IrqClear_t nrfIrqClear;
+nrf24l01IrqPend_t nrfIrqPend;
+//SemaphoreHandle_t nrf24l01Semaphore;
+//=============================================================================
+
+//=============================================================================
+/*-------------------------------- Functions --------------------------------*/
+//=============================================================================
+//-----------------------------------------------------------------------------
+uint8_t nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
+		nrf24l01CSNWrite_t csnWrite, nrf24l01CEWrite_t ceWrite,
+		nrf24l01DelayMicrosec_t delay,
+		nrf24l01IrqClear_t irqClear, nrf24l01IrqPend_t irqPend){
+
+	nrfspiWrite = spiWrite;
+	nrfspiRead = spiRead;
+	nrfcsnWrite = csnWrite;
+	nrfceWrite = ceWrite;
+	nrfcsDelayMicrosec = delay;
+	nrfIrqClear = irqClear;
+	nrfIrqPend = irqPend;
+//	if( spiInitialize(SPI1, SPI_CLK_DIV_128) ) return 1;
+//
+//	nrf24l01PortInitialize();
+//
+//	nrf24l01Semaphore = xSemaphoreCreateBinary();
+//	if(nrf24l01Semaphore == NULL) return 2;
+//	xSemaphoreTake(nrf24l01Semaphore, 0);
 
 
-//=============================
-/*-------- Functions --------*/
-//=============================
-//-----------------------------
-uint8_t nrf24l01Initialize(void){
+	nrfcsnWrite(1);
+	nrfceWrite(0);
 
-	if( spiInitialize(SPI1, SPI_CLK_DIV_128) ) return 1;
-
-	nrf24l01PortInitialize();
-
-	nrf24l01Semaphore = xSemaphoreCreateBinary();
-	if(nrf24l01Semaphore == NULL) return 2;
-	xSemaphoreTake(nrf24l01Semaphore, 0);
-
-	configNRF24L01_CSN_SET;
-	configNRF24L01_CE_RESET;
+//	configNRF24L01_CSN_SET;
+//	configNRF24L01_CE_RESET;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
     /* Starts listening */
@@ -148,7 +167,7 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
     return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
     uint8_t nrfStatus;
@@ -193,7 +212,7 @@ uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
 
     return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
 	/* Enables auto-ack on data pipe 0 */
@@ -227,7 +246,7 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
 	/* Enables auto-ack on data pipe 0 */
@@ -261,7 +280,7 @@ uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetRXPayloadSize(uint8_t size){
 
 	/*
@@ -279,7 +298,7 @@ uint8_t nrf24l01SetRXPayloadSize(uint8_t size){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetRXAdress(uint8_t *address){
 
 	/*
@@ -304,7 +323,7 @@ uint8_t nrf24l01SetRXAdress(uint8_t *address){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetTXAdress(uint8_t *address){
 
 	/*
@@ -329,7 +348,7 @@ uint8_t nrf24l01SetTXAdress(uint8_t *address){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetRFChannel(uint8_t channel){
 
 	uint8_t buffer;
@@ -343,7 +362,7 @@ uint8_t nrf24l01SetRFChannel(uint8_t channel){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetRetryTime(uint8_t time){
 
 	uint8_t buffer;
@@ -357,7 +376,7 @@ uint8_t nrf24l01SetRetryTime(uint8_t time){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetPRX(void){
 
     uint8_t buffer;
@@ -377,7 +396,7 @@ uint8_t nrf24l01SetPRX(void){
 
     return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01SetPTX(void){
 
     uint8_t buffer;
@@ -397,7 +416,7 @@ uint8_t nrf24l01SetPTX(void){
 
     return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
 
 	uint8_t data;
@@ -418,7 +437,7 @@ uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01DisableRXADDR(uint8_t pipes){
 
 	uint8_t data;
@@ -439,7 +458,7 @@ uint8_t nrf24l01DisableRXADDR(uint8_t pipes){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01EnableAA(uint8_t pipes){
 
 	uint8_t data;
@@ -460,7 +479,7 @@ uint8_t nrf24l01EnableAA(uint8_t pipes){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01DisableAA(uint8_t pipes){
 
 	uint8_t data;
@@ -481,12 +500,12 @@ uint8_t nrf24l01DisableAA(uint8_t pipes){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01PowerUp(void){
 
 	uint8_t buffer;
 	uint8_t data;
-	uint32_t k;
+//	uint32_t k;
 
     /* First, we must read the current settings so we don't overwrite them */
     if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
@@ -497,7 +516,8 @@ uint8_t nrf24l01PowerUp(void){
     nrf24l01WriteRegister(NRF24L01_REG_CONFIG, &data);
 
     /* After powering the device, we must wait around 1.5ms */
-    delaysSub(0x3c44);
+    nrfcsDelayMicrosec(2000);
+//    delaysSub(0x3c44);
     //k = 108000 >> 2;
     //while(k--);
 
@@ -507,7 +527,7 @@ uint8_t nrf24l01PowerUp(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01PowerDown(void){
 
 	uint8_t buffer;
@@ -527,26 +547,31 @@ uint8_t nrf24l01PowerDown(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01ReadSR(uint8_t *status){
 
-	uint8_t command;
+//	uint8_t command;
 
 	/* NOP operation command */
-	command = 0xFF;
+//	command = 0xFF;
 
-	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
+//	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &command, 1);
-	spiWaitTX(SPI1, 0xFFFF);
+	//nrfspiWrite(&command, 1, 0xFFFFFF);
+	nrfspiRead(status, 1, 0xFFFFF);
+//	spiWrite(SPI1, &command, 1);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
+//	configNRF24L01_CSN_SET;
 
-	if( spiRead(SPI1, status, 0) ) return 1;
+//	if( nrfspiRead(&status, 1, 0xFF) ) return 1;
+//	if( spiRead(SPI1, status, 0) ) return 1;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer){
 
 	if( (reg == NRF24L01_REG_RX_ADDR_P0) || (reg == NRF24L01_REG_RX_ADDR_P1) || (reg == NRF24L01_REG_TX_ADDR) ){
@@ -558,7 +583,7 @@ uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer){
 
 	if( (reg == NRF24L01_REG_RX_ADDR_P0) || (reg == NRF24L01_REG_RX_ADDR_P1) || (reg == NRF24L01_REG_TX_ADDR) ){
@@ -570,7 +595,7 @@ uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01StatusClear(void){
 
 	uint8_t data;
@@ -584,7 +609,7 @@ uint8_t nrf24l01StatusClear(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01StatusClearMaxRT(void){
 
 	uint8_t data;
@@ -598,7 +623,7 @@ uint8_t nrf24l01StatusClearMaxRT(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01StatusClearTXDS(void){
 
 	uint8_t data;
@@ -612,7 +637,7 @@ uint8_t nrf24l01StatusClearTXDS(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01StatusClearRXDR(void){
 
 	uint8_t data;
@@ -626,60 +651,72 @@ uint8_t nrf24l01StatusClearRXDR(void){
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01FlushTX(void){
 
 	uint8_t command;
 
 	command = 0xE1;
 
-	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
+//	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, &command, 1);
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(&command, 1, 0xFFFFFF);
+//	spiWrite(SPI1, &command, 1);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
+//	configNRF24L01_CSN_SET;
 
-	if( spiRead(SPI1, &command, 0) ) return 1;
+//	if( nrfspiRead(&command, 1, 0xFF) ) return 1;
+//	if( spiRead(SPI1, &command, 0) ) return 1;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01FlushRX(void){
 
 	uint8_t command;
 
 	command = 0xE2;
 
-	configNRF24L01_CSN_RESET;
+//	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
 
-	spiWrite(SPI1, &command, 1);
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(&command, 1, 0xFFFFFF);
+//	spiWrite(SPI1, &command, 1);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+//	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
 
-	if( spiRead(SPI1, &command, 0) ) return 1;
+//	if( nrfspiRead(&command, 1, 0xFF) ) return 1;
+//	if( spiRead(SPI1, &command, 0) ) return 1;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 void nr24l01SetCE(void){
 
-	configNRF24L01_CE_SET;
+	nrfceWrite(1);
+//	configNRF24L01_CE_SET;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 void nr24l01ResetCE(void){
 
-	configNRF24L01_CE_RESET;
+	nrfceWrite(0);
+//	configNRF24L01_CE_RESET;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01Pend(uint32_t ticks){
 
-	if(xSemaphoreTake(nrf24l01Semaphore, ticks) != pdPASS) return 1;
+	//if(xSemaphoreTake(nrf24l01Semaphore, ticks) != pdPASS) return 1;
+
+	if( nrfIrqPend(ticks) != 0 ) return 1;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01TXPower(uint8_t power){
 
     uint8_t buffer;
@@ -701,44 +738,44 @@ uint8_t nrf24l01TXPower(uint8_t power){
     return 0;
     return 0;
 }
+//-----------------------------------------------------------------------------
+//=============================================================================
+
+//=============================================================================
+/*----------------------------- Static functions ----------------------------*/
+//=============================================================================
+//-----------------------------------------------------------------------------
+//static void nrf24l01PortInitialize(void){
+//
+//	gpioPortEnable(configNRF24L01_CE_PORT);
+//	gpioConfig(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
+//
+//	gpioPortEnable(configNRF24L01_CSN_PORT);
+//	gpioConfig(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
+//
+//	gpioPortEnable(configNRF24L01_IRQ_PORT);
+//	gpioConfig(configNRF24L01_IRQ_PORT, configNRF24L01_IRQ_PIN, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_PULL_UP);
+//
+//	/* Configures EXTI line 3 as external source */
+//	nrf24l01EXTIInitialize();
+//}
 //-----------------------------
-//=============================
-
-//=============================
-/*----- Static functions ----*/
-//=============================
-//-----------------------------
-static void nrf24l01PortInitialize(void){
-
-	gpioPortEnable(configNRF24L01_CE_PORT);
-	gpioConfig(configNRF24L01_CE_PORT, configNRF24L01_CE_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
-
-	gpioPortEnable(configNRF24L01_CSN_PORT);
-	gpioConfig(configNRF24L01_CSN_PORT, configNRF24L01_CSN_PIN, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSH_PULL);
-
-	gpioPortEnable(configNRF24L01_IRQ_PORT);
-	gpioConfig(configNRF24L01_IRQ_PORT, configNRF24L01_IRQ_PIN, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_PULL_UP);
-
-	/* Configures EXTI line 3 as external source */
-	nrf24l01EXTIInitialize();
-}
-//-----------------------------
-static void nrf24l01EXTIInitialize(void){
-
-	/* Selects GPIOB pin 3 as external source for line 3 */
-	AFIO->EXTICR[0] = (1U << 12);
-	/* Interrupt for line 3 is not masked */
-	EXTI->IMR |= (1U << 3);
-	/* Sets falling edge as trigger for line 2 */
-	EXTI->FTSR |= (1U << 3);
-	/* Clears pending register */
-	EXTI->PR |= (1U << 3);
-
-	/* Sets NVIC priority and enables interrupt */
-	NVIC_SetPriority(EXTI3_IRQn, 6);
-	NVIC_EnableIRQ(EXTI3_IRQn);
-}
-//-----------------------------
+//static void nrf24l01EXTIInitialize(void){
+//
+//	/* Selects GPIOB pin 3 as external source for line 3 */
+//	AFIO->EXTICR[0] = (1U << 12);
+//	/* Interrupt for line 3 is not masked */
+//	EXTI->IMR |= (1U << 3);
+//	/* Sets falling edge as trigger for line 2 */
+//	EXTI->FTSR |= (1U << 3);
+//	/* Clears pending register */
+//	EXTI->PR |= (1U << 3);
+//
+//	/* Sets NVIC priority and enables interrupt */
+//	NVIC_SetPriority(EXTI3_IRQn, 6);
+//	NVIC_EnableIRQ(EXTI3_IRQn);
+//}
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	uint8_t txBuffer[2];
@@ -746,62 +783,75 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
     txBuffer[0] = reg;
 	txBuffer[1] = 0xFF;
 
-	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
+//	configNRF24L01_CSN_RESET;
 
-	spiWrite(SPI1, txBuffer, 2);
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(txBuffer, 1, 0xFFFFF);
+//	spiWrite(SPI1, txBuffer, 2);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+//	nrfcsnWrite(1);
+//	configNRF24L01_CSN_SET;
 
-	/*
-	 * While sending two bytes (register + dummy), we also received two
-	 * bytes. The first one is the status register. The second byte
-	 * should be the register we are trying to read. So we save the first
-	 * byte in the buffer, which should be the status register, and then
-	 * overwrite it with the second byte, which should be the data we
-	 * are looking for.
-	 */
-	if( spiRead(SPI1, buffer, 0) ) return 1;
-	if( spiRead(SPI1, buffer, 0) ) return 2;
+	if( nrfspiRead(buffer, 1, 0xFFFF) ) {
+		nrfcsnWrite(1);
+		return 1;
+	}
+//	/*
+//	 * While sending two bytes (register + dummy), we also received two
+//	 * bytes. The first one is the status register. The second byte
+//	 * should be the register we are trying to read. So we save the first
+//	 * byte in the buffer, which should be the status register, and then
+//	 * overwrite it with the second byte, which should be the data we
+//	 * are looking for.
+//	 */
+//	if( spiRead(SPI1, buffer, 0) ) return 1;
+//	if( spiRead(SPI1, buffer, 0) ) return 2;
+
+	nrfcsnWrite(1);
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
     uint8_t txBuffer[6] = {0x00};
-    uint8_t *rxBuffer;
-    uint8_t k;
+//    uint8_t *rxBuffer;
+//    uint8_t k;
 
 	txBuffer[0] = reg;
 
-	configNRF24L01_CSN_RESET;
+//	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
 
-	spiWrite(SPI1, txBuffer, sizeof(txBuffer));
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(txBuffer, 1, 0xFFFFF);
+	nrfspiRead(buffer, 5, 0xFFFFF);
+//	spiWrite(SPI1, txBuffer, sizeof(txBuffer));
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
+//	configNRF24L01_CSN_SET;
 
-	/*
-	 * While sending six bytes (register + dummies), we also received six
-	 * bytes. The first one is the status register. The 2~6 bytes
-	 * should be the register we are trying to read. So we save the first
-	 * byte in the buffer, which should be the status register, and then
-	 * overwrite it with the 2~6 bytes, which should be the data we
-	 * are looking for.
-	 *
-	 * In addition, we save the buffer pointer so we do not modify it.
-	 */
-	rxBuffer = buffer;
-	if( spiRead(SPI1, rxBuffer, 0) ) return 1;
-	k = sizeof(txBuffer) - 1;
-	while(k--){
-		if( spiRead(SPI1, rxBuffer++, 0) ) return 2;
-	}
+//	/*
+//	 * While sending six bytes (register + dummies), we also received six
+//	 * bytes. The first one is the status register. The 2~6 bytes
+//	 * should be the register we are trying to read. So we save the first
+//	 * byte in the buffer, which should be the status register, and then
+//	 * overwrite it with the 2~6 bytes, which should be the data we
+//	 * are looking for.
+//	 *
+//	 * In addition, we save the buffer pointer so we do not modify it.
+//	 */
+//	rxBuffer = buffer;
+//	if( spiRead(SPI1, rxBuffer, 0) ) return 1;
+//	k = sizeof(txBuffer) - 1;
+//	while(k--){
+//		if( spiRead(SPI1, rxBuffer++, 0) ) return 2;
+//	}
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 
     uint8_t txBuffer[2];
@@ -809,138 +859,155 @@ static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
     txBuffer[0] = reg | 0x20;
     txBuffer[1] = *buffer;
 
-	configNRF24L01_CSN_RESET;
+//	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
 
-	spiWrite(SPI1, txBuffer, 2);
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(txBuffer, 2, 0xFFFFF);
+//	spiWrite(SPI1, txBuffer, 2);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+//	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
 
-	/*
-	 * While sending two bytes (register + data), we also received two
-	 * bytes. The first one is the status register. The second byte
-	 * is undefined. We just clear them.
-	 */
-	if( spiRead(SPI1, txBuffer, 0) ) return 1;
-	if( spiRead(SPI1, txBuffer, 0) ) return 2;
+//	/*
+//	 * While sending two bytes (register + data), we also received two
+//	 * bytes. The first one is the status register. The second byte
+//	 * is undefined. We just clear them.
+//	 */
+//	if( spiRead(SPI1, txBuffer, 0) ) return 1;
+//	if( spiRead(SPI1, txBuffer, 0) ) return 2;
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
-	uint8_t k;
+//	uint8_t k;
 
 	reg |= 0x20;
 
-	configNRF24L01_CSN_RESET;
+//	configNRF24L01_CSN_RESET;
+	nrfcsnWrite(0);
 
-	spiWrite(SPI1, &reg, 1);
-	spiWrite(SPI1, buffer, 5);
-	spiWaitTX(SPI1, 0xFFFF);
+	nrfspiWrite(&reg, 1, 0xFFFFF);
+	nrfspiWrite(buffer, 5, 0xFFFFF);
+//	spiWrite(SPI1, &reg, 1);
+//	spiWrite(SPI1, buffer, 5);
+//	spiWaitTX(SPI1, 0xFFFF);
 
-	configNRF24L01_CSN_SET;
+//	configNRF24L01_CSN_SET;
+	nrfcsnWrite(1);
 
-	/*
-	 * While sending six bytes (register + data), we also received six
-	 * bytes. The first one is the status register. The 2~6 bytes
-	 * are undefined. We just clear them.
-	 */
-	k = 6;
-	while(k--){
-		if( spiRead(SPI1, &reg, 0) ) return 2;
-	}
+//	/*
+//	 * While sending six bytes (register + data), we also received six
+//	 * bytes. The first one is the status register. The 2~6 bytes
+//	 * are undefined. We just clear them.
+//	 */
+//	k = 6;
+//	while(k--){
+//		if( spiRead(SPI1, &reg, 0) ) return 2;
+//	}
 
 	return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 
     uint8_t command;
-    uint8_t k;
+//    uint8_t k;
 
-    configNRF24L01_CSN_RESET;
+//    configNRF24L01_CSN_RESET;
+    nrfcsnWrite(0);
 
     command = 0xA0;
-    spiWrite(SPI1, &command, 1);
-    spiWrite(SPI1, buffer, size);
-    spiWaitTX(SPI1, 0xFFFF);
+    nrfspiWrite(&command, 1, 0xFFFFF);
+    nrfspiWrite(buffer, size, 0xFFFFF);
+//    spiWrite(SPI1, &command, 1);
+//    spiWrite(SPI1, buffer, size);
+//    spiWaitTX(SPI1, 0xFFFF);
 
-    configNRF24L01_CSN_SET;
+    nrfcsnWrite(1);
+//    configNRF24L01_CSN_SET;
 
     /*
      * A high pulse must be given to CE so transmission can start. This pulse
      * must last at least 10 us. Thus, we set it now and clear it later.
      * */
-    configNRF24L01_CE_SET;
-    /*
-     * While sending the data (command + data), we also received one
-     * byte for each byte transmitted. We just clear them.
-     */
-    k = (uint8_t)(size + 1U);
-    while(k--){
-        if( spiRead(SPI1, &command, 0) ) return 1;
-    }
+//    configNRF24L01_CE_SET;
+    nrfceWrite(1);
 
-    configNRF24L01_CE_RESET;
+    nrfcsDelayMicrosec(10);
+//    /*
+//     * While sending the data (command + data), we also received one
+//     * byte for each byte transmitted. We just clear them.
+//     */
+//    k = (uint8_t)(size + 1U);
+//    while(k--){
+//        if( spiRead(SPI1, &command, 0) ) return 1;
+//    }
+
+    nrfceWrite(0);
+//    configNRF24L01_CE_RESET;
 
     return 0;
 }
-//-----------------------------
+//-----------------------------------------------------------------------------
 static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
 
-    uint8_t *rxBuffer;
+//    uint8_t *rxBuffer;
     uint8_t txBuffer[2] = {0x00};
-    uint8_t k;
+//    uint8_t k;
 
-    configNRF24L01_CSN_RESET;
+//    configNRF24L01_CSN_RESET;
+    nrfcsnWrite(0);
 
     txBuffer[0] = 0x61;
 
     /* First, writes the read RX payload command */
-    spiWrite(SPI1, &txBuffer[0], 1);
+    nrfspiWrite(txBuffer, 1, 0xFFFFF);
+//    spiWrite(SPI1, &txBuffer[0], 1);
     /* Now, sends 0x00 to provide clock to read the payload from the module */
-    k = size;
-    while(k--) spiWrite(SPI1, &txBuffer[1], 1);
-    spiWaitTX(SPI1, 0xFFFF);
+    nrfspiRead(buffer, size, 0xFFFFF);
+    //    k = size;
+//    while(k--) spiWrite(SPI1, &txBuffer[1], 1);
+//    spiWaitTX(SPI1, 0xFFFF);
 
-    configNRF24L01_CSN_SET;
+//    configNRF24L01_CSN_SET;
+    nrfcsnWrite(1);
 
-    /*
-     * While sending the data (command + data), we also received one
-     * byte for each byte transmitted. We clear the first one and
-     * save the rest.
-     *
-     * We save the buffer pointer in a local variable to preserve the
-     * original pointer's value.
-     */
-    rxBuffer = buffer;
-    if( spiRead(SPI1, txBuffer, 0) ) return 1;
-    k = size;
-    while(k--){
-        if( spiRead(SPI1, rxBuffer++, 0) ) return 1;
-    }
+//    /*
+//     * While sending the data (command + data), we also received one
+//     * byte for each byte transmitted. We clear the first one and
+//     * save the rest.
+//     *
+//     * We save the buffer pointer in a local variable to preserve the
+//     * original pointer's value.
+//     */
+//    rxBuffer = buffer;
+//    if( spiRead(SPI1, txBuffer, 0) ) return 1;
+//    k = size;
+//    while(k--){
+//        if( spiRead(SPI1, rxBuffer++, 0) ) return 1;
+//    }
 
     return 0;
 }
-//-----------------------------
-//=============================
+//-----------------------------------------------------------------------------
+//=============================================================================
 
-//=============================
-/*------- IRQ Handlers ------*/
-//=============================
-//-----------------------------
-void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
-void EXTI3_IRQHandler(void){
-
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-	EXTI->PR |= (1U << 3);
-
-	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
-	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-}
-//-----------------------------
-//=============================
-
-#endif
+////=============================
+///*------- IRQ Handlers ------*/
+////=============================
+////-----------------------------
+//void EXTI3_IRQHandler(void) __attribute__ ((interrupt ("IRQ")));
+//void EXTI3_IRQHandler(void){
+//
+//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//
+//	EXTI->PR |= (1U << 3);
+//
+//	xSemaphoreGiveFromISR(nrf24l01Semaphore, &xHigherPriorityTaskWoken);
+//	if(xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+//}
+////-----------------------------
+////=============================

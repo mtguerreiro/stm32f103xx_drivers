@@ -48,15 +48,15 @@
 #ifndef NRF24L01_H_
 #define NRF24L01_H_
 
-//=============================
-/*--------- Includes --------*/
-//=============================
+//=============================================================================
+/*-------------------------------- Includes ---------------------------------*/
+//=============================================================================
 #include <stdint.h>
-//=============================
+//=============================================================================
 
-//=============================
-/*--------- Defines ---------*/
-//=============================
+//=============================================================================
+/*------------------------------- Definitions -------------------------------*/
+//=============================================================================
 /* NRF24L01 Register addresses */
 #define NRF24L01_REG_CONFIG 		0x00
 #define NRF24L01_REG_EN_AA			0x01
@@ -82,18 +82,26 @@
 #define NRF24L01_REG_RX_PW_P4		0x15
 #define NRF24L01_REG_RX_PW_P5		0x16
 #define NRF24L01_REG_FIFO_STATUS	0x17
-//=============================
+
+typedef uint8_t (*nrf24l01SpiWrite_t)(uint8_t *buffer, uint16_t size, uint32_t to);
+typedef uint8_t (*nrf24l01SpiRead_t)(uint8_t *buffer, uint16_t size, uint32_t to);
+typedef uint8_t (*nrf24l01CSNWrite_t)(uint8_t level);
+typedef uint8_t (*nrf24l01CEWrite_t)(uint8_t level);
+typedef void (*nrf24l01DelayMicrosec_t)(uint32_t delay);
+typedef void (*nrf24l01IrqClear_t)(void);
+typedef uint8_t (*nrf24l01IrqPend_t)(uint32_t to);
+//=============================================================================
 
 
-//=============================
-/*-------- Functions --------*/
-//=============================
+//=============================================================================
+/*-------------------------------- Functions --------------------------------*/
+//=============================================================================
 /* Initialization */
 /*
  * These functions are used to initialize the NRF24L01 device and for
  * powering it up/down.
  */
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Prepares MCU's hardware for the NRF24L01 device.
  *
  * Initializes the SPI peripheral (hard-coded as SPI 1) and the CE, CSN and
@@ -108,8 +116,11 @@
  *         -0x02 if failed to create the NRF's semaphore. This can only occur
  *          if there is insufficient RAM memory.
  */
-uint8_t nrf24l01Initialize(void);
-//-----------------------------
+uint8_t nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
+		nrf24l01CSNWrite_t csnWrite, nrf24l01CEWrite_t ceWrite,
+		nrf24l01DelayMicrosec_t delay,
+		nrf24l01IrqClear_t irqClear, nrf24l01IrqPend_t irqPend);
+ //-----------------------------------------------------------------------------
 /** @brief Sets the power up bit in the CONFIG register.
  *
  * First, the CONFIG register is read to ensure that previous bits are not
@@ -121,7 +132,7 @@ uint8_t nrf24l01Initialize(void);
  *         -0x02 if data written/read did not match.
  */
 uint8_t nrf24l01PowerUp(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Clears the power down bit in the CONFIG register.
  *
  * First, the CONFIG register is read to ensure that previous bits are not
@@ -133,7 +144,7 @@ uint8_t nrf24l01PowerUp(void);
  *         -0x02 if data written/read did not match.
  */
 uint8_t nrf24l01PowerDown(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets device as transmitter.
  *
  * The following configurations are set:
@@ -167,7 +178,7 @@ uint8_t nrf24l01PowerDown(void);
  *         -0x0B if failed to clear status.
  */
 uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets device as receiver.
  *
  * The following configurations are set:
@@ -201,14 +212,14 @@ uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel);
  *         -0x0B if failed to clear status.
  */
 uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel);
-//-----------------------------
+//-----------------------------------------------------------------------------
 
 /* Transmitting/Receiving */
 /*
  * These functions deal with sending/receiving data to/from the NRF radio, as
  * well as dealing with flushing of the RX/TX FIFOs.
  */
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Reads data from the NRF24L01 device.
  *
  * Pends on the IRQ pin to wait for new data to become available. When this
@@ -229,7 +240,7 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel);
  *         ticks expired and the IRQ pin was not driven low.
  */
 uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Writes data to the NRF24L01 device.
  *
  * Data is written to the NRF's TX buffer and a high pulse to the CE pin is
@@ -265,26 +276,26 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
  *         -0x03 if exceeded maximum number of retries.
  */
 uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Flushes the NRF's TX FIFO.
  *
  * @return 0 if flush command was sent successfully, 1 otherwise.
  */
 uint8_t nrf24l01FlushTX(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Flushes the NRF's RX FIFO.
  *
  * @return 0 if flush command was sent successfully, 1 otherwise.
  */
 uint8_t nrf24l01FlushRX(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 
 /* Settings */
 /*
  * These functions are used to set several parameters, such as RX payload
  * size, RX/TX addresses, enabling/disabling auto-ack,RF channel, etc.
  */
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets the RX payload size, for data pipe 0.
  *
  * The maximum size is 32 bytes. A value superior to 32 will be truncated to
@@ -295,35 +306,35 @@ uint8_t nrf24l01FlushRX(void);
  * @return 0 if register was set correctly, 1 otherwise.
  */
 uint8_t nrf24l01SetRXPayloadSize(uint8_t size);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets RX address for data pipe 0.
  *
  * @param pointer to buffer containing address.
  * @return 0 if address was set successfully, 1 otherwise.
  */
 uint8_t nrf24l01SetRXAdress(uint8_t *address);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets TX address for data pipe 0.
  *
  * @param pointer to buffer containing address.
  * @return 0 if address was set successfully, 1 otherwise.
  */
 uint8_t nrf24l01SetTXAdress(uint8_t *address);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets RF channel.
  *
  * @param channel RF channel.
  * @return 0 if RF channel was set successfully, 1 otherwise.
  */
 uint8_t nrf24l01SetRFChannel(uint8_t channel);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets retry time and maximum number of retries.
  *
  * @param time Data to be written to the RETR register.
  * @return 0 if RETR register was set successfully, 1 otherwise.
  */
 uint8_t nrf24l01SetRetryTime(uint8_t time);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Enables RX addresses on data pipes.
  *
  * @param pipes Data pipes to be enabled.
@@ -332,7 +343,7 @@ uint8_t nrf24l01SetRetryTime(uint8_t time);
  *         -0x02 if failed to set REG_EN_RXADDR register.
  */
 uint8_t nrf24l01EnableRXADDR(uint8_t pipes);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Disables RX addresses on data pipes.
  *
  * @param pipes Data pipes to be disabled.
@@ -341,7 +352,7 @@ uint8_t nrf24l01EnableRXADDR(uint8_t pipes);
  *         -0x02 if failed to set REG_EN_RXADDR register.
  */
 uint8_t nrf24l01DisableRXADDR(uint8_t pipes);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Enables auto-ack on data pipes.
  *
  * @param pipes Data pipes to enable auto-ack.
@@ -350,7 +361,7 @@ uint8_t nrf24l01DisableRXADDR(uint8_t pipes);
  *         -0x02 if failed to set REG_EN_AA register.
  */
 uint8_t nrf24l01EnableAA(uint8_t pipes);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Disables auto-ack on data pipes.
  *
  * @param pipes Data pipes to disable auto-ack.
@@ -359,7 +370,7 @@ uint8_t nrf24l01EnableAA(uint8_t pipes);
  *         -0x02 if failed to set REG_EN_AA register.
  */
 uint8_t nrf24l01DisableAA(uint8_t pipes);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets device as primary RX.
  *
  * @return 0 if device was set successfully, another value otherwise.
@@ -367,7 +378,7 @@ uint8_t nrf24l01DisableAA(uint8_t pipes);
  *         -0x02 if failed to set REG_CONFIG register.
  */
 uint8_t nrf24l01SetPRX(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets device as primary TX.
  *
  * @return 0 if device was set successfully, another value otherwise.
@@ -375,7 +386,7 @@ uint8_t nrf24l01SetPRX(void);
  *         -0x02 if failed to set REG_CONFIG register.
  */
 uint8_t nrf24l01SetPTX(void);
-//-----------------------------
+//-----------------------------------------------------------------------------
 /** @brief Sets antenna gain.
  *
  * @param power See manual for more info
@@ -384,17 +395,17 @@ uint8_t nrf24l01SetPTX(void);
  *         -0x02 if failed to set REG_RF_SETUP register.
  */
 uint8_t nrf24l01TXPower(uint8_t power);
-//-----------------------------
+//-----------------------------------------------------------------------------
 
 /* Direct comm */
 /*
  * These functions give direct access to the NRF's register.
  */
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
-//-----------------------------
+//-----------------------------------------------------------------------------
 
 /* Status */
 uint8_t nrf24l01ReadSR(uint8_t *status);
@@ -407,7 +418,7 @@ uint8_t nrf24l01StatusClearRXDR(void);
 void nr24l01SetCE(void);
 void nr24l01ResetCE(void);
 uint8_t nrf24l01Pend(uint32_t ticks);
-//=============================
+//=============================================================================
 
 
 #endif /* NRF24L01_H_ */

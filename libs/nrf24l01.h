@@ -22,34 +22,11 @@
  *		- Added RX and TX initialization functions
  *		- Documentation
  *
- *	-v0.1.2:
+ *	-v0.1.2 (23/04/2023):
  *		- Decoupling nrf24l01 from MCU-specific functions
+ *		- Improving function returns
+ *		- TX/RX through dynamic payload only
  *		- Updating documentation
- *
- * Melhorias
- * 		- Após enviar um comando, realizar a leitura para ver
- * 		se foi configurado corretamente
- * 		- Power-down? Ativer power-up somente quando for transmitir?
- * 		- Funções nrf24l01Write e nrf24l01Read
- * 			- Em ambos os casos é necessário ler o status. E se houver
- * 			um erro na leitura? Qual o melhor tratamento para isso?
- * 			- Para transmitir, seria possível ligar o dispositivo só
- * 			no momento da transmissão?
- * 			- Para receber, seria possível ligar o dispositivo só durante
- * 			o tempo de recepção?
- * 			- Ambas as funções utilizam as funções received and transmit
- * 			payload. Essas funções podem retornar erro. Como tratar isso?
- * 			- Para leitura, é necessário informar a quantidade de bytes a
- * 			serem lidas. Porém, os bytes são apenas recebidos se a quantidade
- * 			configurada no registrador do payload size for correta. Uma
- * 			melhoria é ler esse registrador para não ser necessário informar
- * 			a quantidade a ser lida ao chamar a função nrf24l01Read.
- * 		- É possível transmitir dados durante o auto ack. Isso facilitaria
- * 		a comunicação bidirecional, sem ter que trocar o rádio de TX para RX
- * 		manualmente.
- * 		- É possível transmitir uma payload de tamanho variável. No momento, o
- * 		tamanho da payload precisa ser o mesmo no TX e RX, mas é possível
- * 		desacoplar isso.
  *
  *  Created on: Dec 9, 2018
  *      Author: Marco
@@ -67,31 +44,15 @@
 //=============================================================================
 /*------------------------------- Definitions -------------------------------*/
 //=============================================================================
-/* NRF24L01 Register addresses */
-#define NRF24L01_REG_CONFIG 		0x00
-#define NRF24L01_REG_EN_AA			0x01
-#define NRF24L01_REG_EN_RXADDR		0x02
-#define NRF24L01_REG_SETUP_AW		0x03
-#define NRF24L01_REG_SETUP_RETR		0x04
-#define NRF24L01_REG_RF_CH			0x05
-#define NRF24L01_REG_RF_SETUP		0x06
-#define NRF24L01_REG_STATUS			0x07
-#define NRF24L01_REG_OBS_TX			0x08
-#define NRF24L01_REG_CD				0x09
-#define NRF24L01_REG_RX_ADDR_P0		0x0A
-#define NRF24L01_REG_RX_ADDR_P1		0x0B
-#define NRF24L01_REG_RX_ADDR_P2		0x0C
-#define NRF24L01_REG_RX_ADDR_P3		0x0D
-#define NRF24L01_REG_RX_ADDR_P4		0x0E
-#define NRF24L01_REG_RX_ADDR_P5		0x0F
-#define NRF24L01_REG_TX_ADDR		0x10
-#define NRF24L01_REG_RX_PW_P0		0x11
-#define NRF24L01_REG_RX_PW_P1		0x12
-#define NRF24L01_REG_RX_PW_P2		0x13
-#define NRF24L01_REG_RX_PW_P3		0x14
-#define NRF24L01_REG_RX_PW_P4		0x15
-#define NRF24L01_REG_RX_PW_P5		0x16
-#define NRF24L01_REG_FIFO_STATUS	0x17
+typedef enum{
+	NRF24L01_CMD_STATUS_OK = 0,
+	NRF24L01_CMD_STATUS_SPI_ERROR = -1,
+	NRF24L01_CMD_STATUS_TX_TO = -2,
+	NRF24L01_CMD_STATUS_TX_MAX_RETRY = -3,
+	NRF24L01_CMD_STATUS_RX_TO = -4,
+	NRF24L01_CMD_STATUS_RX_PAYLOAD_ERROR = -5,
+	NRF24L01_CMD_STATUS_PEND_TO = -6
+}nrf24l01CmdStatus_t;
 
 /** @brief Writes data through SPI.
  *
@@ -101,7 +62,7 @@
  *
  *	@return 0 of write was successful, another value otherwise.
  */
-typedef uint8_t (*nrf24l01SpiWrite_t)(uint8_t *buffer, uint16_t size, uint32_t to);
+typedef int8_t (*nrf24l01SpiWrite_t)(uint8_t *buffer, uint16_t size, uint32_t to);
 
  /** @brief Reads data from SPI.
   *
@@ -111,7 +72,7 @@ typedef uint8_t (*nrf24l01SpiWrite_t)(uint8_t *buffer, uint16_t size, uint32_t t
   *
   *	@return 0 of read was successful, another value otherwise.
   */
-typedef uint8_t (*nrf24l01SpiRead_t)(uint8_t *buffer, uint16_t size, uint32_t to);
+typedef int8_t (*nrf24l01SpiRead_t)(uint8_t *buffer, uint16_t size, uint32_t to);
 
 /** @brief Writes to the CSN pin.
  *
@@ -175,7 +136,7 @@ typedef void (*nrf24l01IrqClear_t)(void);
  *
  * @param to Timeout to wait on pend.
  */
-typedef uint8_t (*nrf24l01IrqPend_t)(uint32_t to);
+typedef int8_t (*nrf24l01IrqPend_t)(uint32_t to);
 //=============================================================================
 
 
@@ -211,11 +172,9 @@ void nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
  * overwritten. The power up bit is then set and the register is read once
  * again to ensure data was written correctly.
  *
- * @return 0 if device was powered up successfully, another value otherwise.
- *         -0x01 if failed to read NRF's CONFIG register
- *         -0x02 if data written/read did not match.
+ * @return 0 if device was powered up successfully, or a negative error code.
  */
-uint8_t nrf24l01PowerUp(void);
+int8_t nrf24l01PowerUp(void);
 //-----------------------------------------------------------------------------
 /** @brief Clears the power down bit in the CONFIG register.
  *
@@ -223,13 +182,13 @@ uint8_t nrf24l01PowerUp(void);
  * overwritten. The power down bit is then cleared and the register is read
  * once again to ensure data was written correctly.
  *
- * @return 0 if device was powered down successfully, another value otherwise.
- *         -0x01 if failed to read NRF's CONFIG register
- *         -0x02 if data written/read did not match.
+ * @return 0 if device was powered down successfully, or a negative error code.
  */
-uint8_t nrf24l01PowerDown(void);
+int8_t nrf24l01PowerDown(void);
 //-----------------------------------------------------------------------------
-/** @brief Sets device as transmitter.
+/** @brief Sets the main settings for the device.
+ *
+ * This settings are valid for both RX and TX modes.
  *
  * The following configurations are set:
  *
@@ -238,64 +197,19 @@ uint8_t nrf24l01PowerDown(void);
  * - RX and TX addresses are set to the same value .
  * - RF channel is set.
  * - Retransmission time is set to 2000 us and number of retries is set to 5.
- * - Number of bytes for RX payload is set.
+ * - Dynamic payload is enabled on data pipe 0.
  * - The device is set as primary TX.
  * - RX and TX FIFOs are flushed.
  * - Status flags are cleared.
  *
  * @param address Pointer to buffer containing address. This is used both for
  *                RX and TX.
- * @param plSize Payload size, in bytes.
  * @param channel RF channel.
  *
- * @return 0 if all settings were successful, another value otherwise.
- *         -0x01 if failed to enable auto-ack.
- *         -0x02 if failed to enable RX address on data pipe 0.
- *         -0x03 if failed to set retransmission time and number of retries.
- *         -0x04 if failed to set RF channel.
- *         -0x05 if failed to set RX address.
- *         -0x06 if failed to set TX address.
- *         -0x07 if failed to set RX payload size.
- *         -0x08 if failed to set as primary TX.
- *         -0x09 if failed to flush TX FIFO.
- *         -0x0A if failed to flush RX FIFO.
- *         -0x0B if failed to clear status.
+ * @return 0 if device was set successfully, or a negative error code.
+ *
  */
-uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel);
-//-----------------------------------------------------------------------------
-/** @brief Sets device as receiver.
- *
- * The following configurations are set:
- *
- * - Auto-ack is enabled for data pipe 0.
- * - RX address is enabled on data pipe 0.
- * - RX and TX addresses are set to the same value .
- * - RF channel is set.
- * - Retransmission time is set to 2000 us and number of retries is set to 5.
- * - Number of bytes for RX payload is set.
- * - The device is set as primary RX.
- * - RX and TX FIFOs are flushed.
- * - Status flags are cleared.
- *
- * @param address Pointer to buffer containing address. This is used both for
- *                RX and TX.
- * @param plSize Payload size, in bytes.
- * @param channel RF channel.
- *
- * @return 0 if all settings were successful, another value otherwise.
- *         -0x01 if failed to enable auto-ack.
- *         -0x02 if failed to enable RX address on data pipe 0.
- *         -0x03 if failed to set retransmission time and number of retries.
- *         -0x04 if failed to set RF channel.
- *         -0x05 if failed to set RX address.
- *         -0x06 if failed to set TX address.
- *         -0x07 if failed to set RX payload size.
- *         -0x08 if failed to set as primary RX.
- *         -0x09 if failed to flush TX FIFO.
- *         -0x0A if failed to flush RX FIFO.
- *         -0x0B if failed to clear status.
- */
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel);
+int8_t nrf24l01SetConfigs(uint8_t *address, uint8_t channel);
 //-----------------------------------------------------------------------------
 
 /* Transmitting/Receiving */
@@ -311,19 +225,22 @@ uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel);
  * incoming transmissions. As a side note, current consumption increases when
  * the device starts listening.
  *
+ * Moreover, TX and RX FIFOs are flushed.
+ *
  * As soon as the IRQ pin is driven low, new data is available and the RX
  * register is read. After reading the RX register, the CE pin in reset and
  * the device stops listening for incoming transmissions.
  *
- * @param buffer Pointer to buffer to store data read from the NRF24L01. The
- *               pointer's value is not modified by this function.
- * @param size RX payload size expected.
- * @param pendTicks Number of ticks to wait for the IRQ pin to be driven low.
+ * @param buffer Pointer to buffer to store data read from the NRF24L01. This
+ * 				 buffer must be at least 32 bytes long, which is the maximum
+ * 				 number of bytes that can be received.
+ * @param timeout IRQ timeout. This depends on how the IRQ functions are
+ * 				  implemented.
  *
- * @return 0 if new data was received and saved to buffer, 1 if number of
- *         ticks expired and the IRQ pin was not driven low.
+ * @return if data was received, returns the number of bytes received.
+ * 		   Otherwise a negative error code.
  */
-uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
+int8_t nrf24l01Read(uint8_t *buffer, uint32_t timeout);
 //-----------------------------------------------------------------------------
 /** @brief Writes data to the NRF24L01 device.
  *
@@ -338,8 +255,8 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
  * Several scenarios are possible after sending data to the NRF device and
  * applying the pulse on the CE pin. Each scenario is described below.
  *
- *  - If the IRQ pin is not drive low, the NRF's TX buffer is flushed and the
- *    maximum retries and TXDS flags are cleared.
+ *  - If the IRQ pin is not driven low, the NRF's TX buffer is flushed and
+ *    the maximum retries and TXDS flags are cleared.
  *  - If the IRQ pin is driven low and there was an issue reading the status
  *    register, the TX buffer is flushed and the maximum retries and TXDS
  *    flags are cleared.
@@ -348,30 +265,26 @@ uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
  *    flag is cleared.
  *  - If data is sent successfully, the TX data sent flag is cleared.
  *
- * @param buffer Pointer to buffer containing data to be transmitted. The
- *               pointer's value is not modified by this function.
+ * @param buffer Pointer to buffer containing data to be transmitted.
  * @param size Number of bytes to send.
- * @param pendTicks Number of ticks to wait for the IRQ pin to be driven low.
+ * @param timeout IRQ timeout. This depends on how the IRQ functions are
+ * 				  implemented.
  *
- * @return 0 if data was sent successfully, another value otherwise.
- *         -0x01 if number of ticks expired and the IRQ pin was not driven
- *          low.
- *         -0x02 if there was an error reading the status register.
- *         -0x03 if exceeded maximum number of retries.
+ * @return 0 if data was sent successfully, or a negative error code.
  */
-uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks);
+int8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t timeout);
 //-----------------------------------------------------------------------------
 /** @brief Flushes the NRF's TX FIFO.
  *
- * @return 0 if flush command was sent successfully, 1 otherwise.
+ * @return 0 if flush command was sent successfully, or a negative error code.
  */
-uint8_t nrf24l01FlushTX(void);
+int8_t nrf24l01FlushTX(void);
 //-----------------------------------------------------------------------------
 /** @brief Flushes the NRF's RX FIFO.
  *
- * @return 0 if flush command was sent successfully, 1 otherwise.
+ * @return 0 if flush command was sent successfully, or a negative error code.
  */
-uint8_t nrf24l01FlushRX(void);
+int8_t nrf24l01FlushRX(void);
 //-----------------------------------------------------------------------------
 
 /* Settings */
@@ -382,126 +295,133 @@ uint8_t nrf24l01FlushRX(void);
 //-----------------------------------------------------------------------------
 /** @brief Sets the RX payload size, for data pipe 0.
  *
- * The maximum size is 32 bytes. A value superior to 32 will be truncated to
+ * The maximum size is 32 bytes. A value higher then 32 will be truncated to
  * 32.
  *
  * @param size Size of payload for data pipe 0, in bytes
  *
- * @return 0 if register was set correctly, 1 otherwise.
+ * @return 0 if register was set correctly, or a negative error code.
  */
-uint8_t nrf24l01SetRXPayloadSize(uint8_t size);
+int8_t nrf24l01SetRXPayloadSize(uint8_t size);
 //-----------------------------------------------------------------------------
 /** @brief Sets RX address for data pipe 0.
  *
  * @param pointer to buffer containing address.
- * @return 0 if address was set successfully, 1 otherwise.
+ * @return 0 if address was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetRXAdress(uint8_t *address);
+int8_t nrf24l01SetRXAdress(uint8_t *address);
 //-----------------------------------------------------------------------------
 /** @brief Sets TX address for data pipe 0.
  *
  * @param pointer to buffer containing address.
- * @return 0 if address was set successfully, 1 otherwise.
+ * @return 0 if address was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetTXAdress(uint8_t *address);
+int8_t nrf24l01SetTXAdress(uint8_t *address);
 //-----------------------------------------------------------------------------
 /** @brief Sets RF channel.
  *
  * @param channel RF channel.
- * @return 0 if RF channel was set successfully, 1 otherwise.
+ * @return 0 if RF channel was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetRFChannel(uint8_t channel);
+int8_t nrf24l01SetRFChannel(uint8_t channel);
 //-----------------------------------------------------------------------------
 /** @brief Sets retry time and maximum number of retries.
  *
  * @param time Data to be written to the RETR register.
- * @return 0 if RETR register was set successfully, 1 otherwise.
+ * @return 0 if RETR register was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetRetryTime(uint8_t time);
+int8_t nrf24l01SetRetryTime(uint8_t time);
 //-----------------------------------------------------------------------------
 /** @brief Enables RX addresses on data pipes.
  *
  * @param pipes Data pipes to be enabled.
- * @return 0 if data pipes were set successfully, another value otherwise.
- *         -0x01 if failed to read REG_EN_RXADDR register.
- *         -0x02 if failed to set REG_EN_RXADDR register.
+ * @return 0 if data pipes were set successfully, or a negative error code.
  */
-uint8_t nrf24l01EnableRXADDR(uint8_t pipes);
+int8_t nrf24l01EnableRXADDR(uint8_t pipes);
 //-----------------------------------------------------------------------------
 /** @brief Disables RX addresses on data pipes.
  *
  * @param pipes Data pipes to be disabled.
- * @return 0 if data pipes were cleared successfully, another value otherwise.
- *         -0x01 if failed to read REG_EN_RXADDR register.
- *         -0x02 if failed to set REG_EN_RXADDR register.
+ * @return 0 if data pipes were cleared successfully, or a negative error code.
  */
-uint8_t nrf24l01DisableRXADDR(uint8_t pipes);
+int8_t nrf24l01DisableRXADDR(uint8_t pipes);
 //-----------------------------------------------------------------------------
 /** @brief Enables auto-ack on data pipes.
  *
  * @param pipes Data pipes to enable auto-ack.
- * @return 0 if auto-ack were enabled successfully, another value otherwise.
- *         -0x01 if failed to read REG_EN_AA register.
- *         -0x02 if failed to set REG_EN_AA register.
+ * @return 0 if auto-ack were enabled successfully, or a negative error code.
  */
-uint8_t nrf24l01EnableAA(uint8_t pipes);
+int8_t nrf24l01EnableAA(uint8_t pipes);
 //-----------------------------------------------------------------------------
 /** @brief Disables auto-ack on data pipes.
  *
  * @param pipes Data pipes to disable auto-ack.
- * @return 0 if auto-ack were disabled successfully, another value otherwise.
- *         -0x01 if failed to read REG_EN_AA register.
- *         -0x02 if failed to set REG_EN_AA register.
+ * @return 0 if auto-ack were disabled successfully, or a negative error code.
  */
-uint8_t nrf24l01DisableAA(uint8_t pipes);
+int8_t nrf24l01DisableAA(uint8_t pipes);
 //-----------------------------------------------------------------------------
 /** @brief Sets device as primary RX.
  *
- * @return 0 if device was set successfully, another value otherwise.
- *         -0x01 if failed to read REG_CONFIG register.
- *         -0x02 if failed to set REG_CONFIG register.
+ * @return 0 if device was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetPRX(void);
+int8_t nrf24l01SetPRX(void);
 //-----------------------------------------------------------------------------
 /** @brief Sets device as primary TX.
  *
- * @return 0 if device was set successfully, another value otherwise.
- *         -0x01 if failed to read REG_CONFIG register.
- *         -0x02 if failed to set REG_CONFIG register.
+ * @return 0 if device was set successfully, or a negative error code.
  */
-uint8_t nrf24l01SetPTX(void);
+int8_t nrf24l01SetPTX(void);
 //-----------------------------------------------------------------------------
 /** @brief Sets antenna gain.
  *
  * @param power See manual for more info
- * @return 0 if power was set successfully, another value otherwise.
- *         -0x01 if failed to read REG_RF_SETUP register.
- *         -0x02 if failed to set REG_RF_SETUP register.
+ * @return 0 if power was set successfully, or a negative error code.
  */
-uint8_t nrf24l01TXPower(uint8_t power);
+int8_t nrf24l01TXPower(uint8_t power);
 //-----------------------------------------------------------------------------
-
+/** @brief Sets dynamic payload length (DPL).
+ *
+ * @param dpl 1 to enable DPL, 0 to disable it.
+ * @return 0 if DPL was set successfully, or a negative error code.
+ */
+int8_t nrf24l01SetDPL(uint8_t dpl);
+//-----------------------------------------------------------------------------
+/** @brief Sets dynamic payload length on data pipe 0.
+ *
+ * @param dpl 1 to enable DPL, 0 to disable it.
+ * @return 0 if DPL was set successfully, or a negative error code.
+ */
+int8_t nrf24l01SetDynPD(uint8_t dpl);
+//-----------------------------------------------------------------------------
+/** @brief Reads the received payload's width.
+ *
+ * @return Payload's width. If an error occurred, or a negative error code is
+ * 		   returned instead.
+ */
+int8_t nrf24l01ReadRXPayloadWidth(void);
+//-----------------------------------------------------------------------------
 /* Direct comm */
 /*
  * These functions give direct access to the NRF's register.
  */
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
+int8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
+int8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
 
 /* Status */
-uint8_t nrf24l01ReadSR(uint8_t *status);
-uint8_t nrf24l01StatusClear(void);
-uint8_t nrf24l01StatusClearMaxRT(void);
-uint8_t nrf24l01StatusClearTXDS(void);
-uint8_t nrf24l01StatusClearRXDR(void);
+int8_t nrf24l01ReadSR(uint8_t *status);
+int8_t nrf24l01StatusClear(void);
+int8_t nrf24l01StatusClearMaxRT(void);
+int8_t nrf24l01StatusClearTXDS(void);
+int8_t nrf24l01StatusClearRXDR(void);
 
 /* Control */
 void nr24l01SetCE(void);
 void nr24l01ResetCE(void);
-uint8_t nrf24l01Pend(uint32_t ticks);
+int8_t nrf24l01Pend(uint32_t ticks);
+
 //=============================================================================
 
 

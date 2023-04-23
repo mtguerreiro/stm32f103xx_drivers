@@ -15,13 +15,13 @@
 /*-------------------------------- Prototypes -------------------------------*/
 //=============================================================================
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer);
+static int8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer);
+static int8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer);
+static int8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
+static int8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
 //-----------------------------------------------------------------------------
 /* Transmitting/receiving functionalities */
 //-----------------------------------------------------------------------------
@@ -40,31 +40,54 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer);
  *
  * @param buffer Pointer to buffer containing data to be sent.
  * @param size Number of bytes to transmit.
- * @return 0 if data was sent successfully, 1 if not enough bytes were
- *         received during transmission, which can indicate that
- *         transmission failed.
+ * @return 0 if data was sent successfully, or a negative error code.
  *
  */
-static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
+static int8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size);
 //-----------------------------------------------------------------------------
-/** @brief Receives a payload.
+/** @brief Reads a payload from the RX FIFO buffer.
  *
- * The NRF's RX buffer is read. It is necessary to inform the number of bytes
- * to be read, which is the same as the configured RX payload size.
+ * @param buffer Buffer to store the payload.
+ * @param size Number of bytes to read.
  *
- * @param buffer Pointer to buffer that will store the payload bytes.
- * @param size RX payload size.
- *
- * @return 0 if data data was retrieved from the NRF RX buffer, 1 if could
- *         not read data from NRF.
+ * @return 0 if data data was retrieved from the NRF RX buffer, or a negative
+ * 			 error code if an error occurred.
  */
-static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size);
+static int8_t nrf24l01ReadRXPayload(uint8_t *buffer, uint8_t size);
 //-----------------------------------------------------------------------------
 //=============================================================================
 
 //=============================================================================
 /*------------------------------- Definitions -------------------------------*/
 //=============================================================================
+/* NRF24L01 Register addresses */
+#define NRF24L01_REG_CONFIG 		0x00
+#define NRF24L01_REG_EN_AA			0x01
+#define NRF24L01_REG_EN_RXADDR		0x02
+#define NRF24L01_REG_SETUP_AW		0x03
+#define NRF24L01_REG_SETUP_RETR		0x04
+#define NRF24L01_REG_RF_CH			0x05
+#define NRF24L01_REG_RF_SETUP		0x06
+#define NRF24L01_REG_STATUS			0x07
+#define NRF24L01_REG_OBS_TX			0x08
+#define NRF24L01_REG_CD				0x09
+#define NRF24L01_REG_RX_ADDR_P0		0x0A
+#define NRF24L01_REG_RX_ADDR_P1		0x0B
+#define NRF24L01_REG_RX_ADDR_P2		0x0C
+#define NRF24L01_REG_RX_ADDR_P3		0x0D
+#define NRF24L01_REG_RX_ADDR_P4		0x0E
+#define NRF24L01_REG_RX_ADDR_P5		0x0F
+#define NRF24L01_REG_TX_ADDR		0x10
+#define NRF24L01_REG_RX_PW_P0		0x11
+#define NRF24L01_REG_RX_PW_P1		0x12
+#define NRF24L01_REG_RX_PW_P2		0x13
+#define NRF24L01_REG_RX_PW_P3		0x14
+#define NRF24L01_REG_RX_PW_P4		0x15
+#define NRF24L01_REG_RX_PW_P5		0x16
+#define NRF24L01_REG_FIFO_STATUS	0x17
+#define NRF24L01_REG_DYNPD			0x1C
+#define NRF24L01_REG_FEATURE		0x1D
+
 #define NRF24L01_CONFIG_SPI_READ_TO			0xFFFFF
 #define NRF24L01_CONFIG_SPI_WRITE_TO		0xFFFFF
 //=============================================================================
@@ -102,44 +125,60 @@ void nrf24l01Initialize(nrf24l01SpiWrite_t spiWrite, nrf24l01SpiRead_t spiRead,
 	nrf24l01CEWrite(0);
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01Read(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
+int8_t nrf24l01Read(uint8_t *buffer, uint32_t timeout){
 
-	/* Clears any pending IRQ */
+	int8_t size;
+	int8_t readstatus;
+
+	/* Flushes FIFOs, clears any pending IRQ */
+	if( nrf24l01FlushTX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01FlushRX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01StatusClear()) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	nrf24l01IrqClear();
 
     /* Starts listening */
 	nrf24l01CEWrite(1);
 
-    if( nrf24l01Pend(pendTicks) ){
+    if( nrf24l01Pend(timeout) ){
         /* Nothing received. Stops listening and returns. */
     	nrf24l01CEWrite(0);
-        return 1;
+        return NRF24L01_CMD_STATUS_RX_TO;
     }
 
     /*
-     * If the device is in RX mode and the pend returned 0, then we certainly
+     * If the device is in RX mode and pend returned 0, then we certainly
      * received data. Thus, we just retrieve it from the FIFO and clear the
      * data received flag.
      */
-    nrf24l01ReceivePayload(buffer, size);
+    size = nrf24l01ReadRXPayloadWidth();
+    if( size <= 0 ){
+    	nrf24l01CEWrite(0);
+    	return NRF24L01_CMD_STATUS_SPI_ERROR;
+    }
+    readstatus = nrf24l01ReadRXPayload(buffer, (uint8_t)size);
     nrf24l01StatusClearRXDR();
 
     /* Stops listening */
     nrf24l01CEWrite(0);
 
-    return 0;
+    if( readstatus != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+    return size;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
+int8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t timeout){
 
     uint8_t nrfStatus;
 
-	/* Clears any pending IRQ */
+	/* Flushes FIFOs, clears any pending IRQ */
+	if( nrf24l01FlushTX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01FlushRX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01StatusClear()) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	nrf24l01IrqClear();
 
     nrf24l01TransmitPayload(buffer, size);
 
-    if( nrf24l01Pend(pendTicks) ){
+    if( nrf24l01Pend(timeout) ){
         /*
          * Pend should always return 0, because if transmission fails, it
          * will be due to maximum retries being reached (assuming enough
@@ -149,7 +188,7 @@ uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
         nrf24l01FlushTX();
         nrf24l01StatusClearMaxRT();
         nrf24l01StatusClearTXDS();
-        return 1;
+        return NRF24L01_CMD_STATUS_TX_TO;
     }
 
     /*
@@ -163,13 +202,13 @@ uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
         nrf24l01FlushTX();
         nrf24l01StatusClearMaxRT();
         nrf24l01StatusClearTXDS();
-        return 2;
+        return NRF24L01_CMD_STATUS_SPI_ERROR;
     }
     if( nrfStatus & (1 << 4) ){
         /* Maximum number of retries exceeded */
         nrf24l01FlushTX();
         nrf24l01StatusClearMaxRT();
-        return 3;
+        return NRF24L01_CMD_STATUS_TX_MAX_RETRY;
     }
 
     /* Data sent successfully */
@@ -178,75 +217,45 @@ uint8_t nrf24l01Write(uint8_t *buffer, uint8_t size, uint32_t pendTicks){
     return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetRX(uint8_t *address, uint8_t plSize, uint8_t channel){
+int8_t nrf24l01SetConfigs(uint8_t *address, uint8_t channel){
 
 	/* Enables auto-ack on data pipe 0 */
-	if( nrf24l01EnableAA(0x01) ) return 1;
+	if( nrf24l01EnableAA(0x01) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Enables RX address on data pipe 0 */
-	if( nrf24l01EnableRXADDR(0x01) ) return 2;
+	if( nrf24l01EnableRXADDR(0x01) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Waits 2000 us for retransmission, tries up to 5 times */
-	if( nrf24l01SetRetryTime(0x65) ) return 3;
+	if( nrf24l01SetRetryTime(0x65) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Sets RF channel (frequency) */
-	if( nrf24l01SetRFChannel(channel) ) return 4;
+	if( nrf24l01SetRFChannel(channel) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Sets RX address */
-	if( nrf24l01SetRXAdress(address) ) return 5;
+	if( nrf24l01SetRXAdress(address) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Sets TX address */
-	if( nrf24l01SetTXAdress(address) ) return 6;
+	if( nrf24l01SetTXAdress(address) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	/* Sets dynamic payload length */
+	if( nrf24l01SetDPL( 1 ) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01SetDynPD( 1 ) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Sets number of bytes in RX payload data pipe 0 to 5 */
-	if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
+	//if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
 
 	/* Sets as primary RX (PRX) */
-	if( nrf24l01SetPRX() ) return 8;
+	if( nrf24l01SetPRX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
-	if( nrf24l01FlushTX() ) return 9;
-	if( nrf24l01FlushRX() ) return 10;
+	if( nrf24l01FlushTX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+	if( nrf24l01FlushRX() ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
-	if( nrf24l01StatusClear()) return 11;
-
-	return 0;
-}
-//-----------------------------------------------------------------------------
-uint8_t nrf24l01SetTX(uint8_t *address, uint8_t plSize, uint8_t channel){
-
-	/* Enables auto-ack on data pipe 0 */
-	if( nrf24l01EnableAA(0x01) ) return 1;
-
-	/* Enables RX address on data pipe 0 */
-	if( nrf24l01EnableRXADDR(0x01) ) return 2;
-
-	/* Waits 2000 us for retransmission, tries up to 5 times */
-	if( nrf24l01SetRetryTime(0x65) ) return 3;
-
-	/* Sets RF channel (frequency) */
-	if( nrf24l01SetRFChannel(channel) ) return 4;
-
-	/* Sets RX address */
-	if( nrf24l01SetRXAdress(address) ) return 5;
-
-	/* Sets TX address */
-	if( nrf24l01SetTXAdress(address) ) return 6;
-
-	/* Sets number of bytes in RX payload data pipe 0 to plSize */
-	if( nrf24l01SetRXPayloadSize(plSize) ) return 7;
-
-	/* Sets as primary TX (PTX) */
-	if( nrf24l01SetPTX() ) return 8;
-
-	if( nrf24l01FlushTX() ) return 9;
-	if( nrf24l01FlushRX() ) return 10;
-
-	if( nrf24l01StatusClear() ) return 11;
+	if( nrf24l01StatusClear()) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetRXPayloadSize(uint8_t size){
+int8_t nrf24l01SetRXPayloadSize(uint8_t size){
 
 	/*
 	 * Sets RX payload size for data pipe 0.
@@ -259,12 +268,12 @@ uint8_t nrf24l01SetRXPayloadSize(uint8_t size){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_RX_PW_P0, &buffer);
-	if(size != buffer) return 1;
+	if(size != buffer) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetRXAdress(uint8_t *address){
+int8_t nrf24l01SetRXAdress(uint8_t *address){
 
 	/*
 	 * Sets RX address for data pipe 0.
@@ -283,13 +292,13 @@ uint8_t nrf24l01SetRXAdress(uint8_t *address){
 	addrBuffer = address;
 	k = 5;
 	while(k--){
-		if(buffer[k] != addrBuffer[k]) return 1;
+		if(buffer[k] != addrBuffer[k]) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetTXAdress(uint8_t *address){
+int8_t nrf24l01SetTXAdress(uint8_t *address){
 
 	/*
 	 * Sets TX address for data pipe 0.
@@ -308,13 +317,13 @@ uint8_t nrf24l01SetTXAdress(uint8_t *address){
 	addrBuffer = address;
 	k = 5;
 	while(k--){
-		if(buffer[k] != addrBuffer[k]) return 1;
+		if(buffer[k] != addrBuffer[k]) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetRFChannel(uint8_t channel){
+int8_t nrf24l01SetRFChannel(uint8_t channel){
 
 	uint8_t buffer;
 
@@ -323,12 +332,12 @@ uint8_t nrf24l01SetRFChannel(uint8_t channel){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_RF_CH, &buffer);
-	if(buffer != channel) return 1;
+	if(buffer != channel) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetRetryTime(uint8_t time){
+int8_t nrf24l01SetRetryTime(uint8_t time){
 
 	uint8_t buffer;
 
@@ -337,18 +346,18 @@ uint8_t nrf24l01SetRetryTime(uint8_t time){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_SETUP_RETR, &buffer);
-	if(buffer != time) return 1;
+	if(buffer != time) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetPRX(void){
+int8_t nrf24l01SetPRX(void){
 
     uint8_t buffer;
     uint8_t data;
 
     /* First, we must read the current settings so we don't overwrite them */
-    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     data |= 0x01;
 
@@ -357,18 +366,18 @@ uint8_t nrf24l01SetPRX(void){
 
     /* Reads from NRF register to make sure we wrote it correctly */
     nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-    if(buffer != data) return 2;
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01SetPTX(void){
+int8_t nrf24l01SetPTX(void){
 
     uint8_t buffer;
     uint8_t data;
 
     /* First, we must read the current settings so we don't overwrite them */
-    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     data &= (uint8_t)(~0x01);
 
@@ -377,18 +386,18 @@ uint8_t nrf24l01SetPTX(void){
 
     /* Reads from NRF register to make sure we wrote it correctly */
     nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-    if(buffer != data) return 2;
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
+int8_t nrf24l01EnableRXADDR(uint8_t pipes){
 
 	uint8_t data;
 	uint8_t buffer;
 
 	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return 1;
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Sets new pipes */
 	data |= pipes;
@@ -398,18 +407,18 @@ uint8_t nrf24l01EnableRXADDR(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &buffer);
-	if(buffer != data) return 2;
+	if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01DisableRXADDR(uint8_t pipes){
+int8_t nrf24l01DisableRXADDR(uint8_t pipes){
 
 	uint8_t data;
 	uint8_t buffer;
 
 	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return 1;
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Clear pipes */
 	data &= (uint8_t)(~pipes);
@@ -419,18 +428,18 @@ uint8_t nrf24l01DisableRXADDR(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_RXADDR, &buffer);
-	if(buffer != data) return 1;
+	if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01EnableAA(uint8_t pipes){
+int8_t nrf24l01EnableAA(uint8_t pipes){
 
 	uint8_t data;
 	uint8_t buffer;
 
 	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return 1;
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Clear pipes */
 	data |= pipes;
@@ -440,18 +449,18 @@ uint8_t nrf24l01EnableAA(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &buffer);
-	if(buffer != data) return 2;
+	if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01DisableAA(uint8_t pipes){
+int8_t nrf24l01DisableAA(uint8_t pipes){
 
 	uint8_t data;
 	uint8_t buffer;
 
 	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return 1;
+	if( nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	/* Clear pipes */
     data &= (uint8_t)(~pipes);
@@ -461,18 +470,18 @@ uint8_t nrf24l01DisableAA(uint8_t pipes){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_EN_AA, &buffer);
-	if(buffer != data) return 2;
+	if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01PowerUp(void){
+int8_t nrf24l01PowerUp(void){
 
 	uint8_t buffer;
 	uint8_t data;
 
     /* First, we must read the current settings so we don't overwrite them */
-    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+    if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	data |= 0x02;
 
@@ -484,18 +493,18 @@ uint8_t nrf24l01PowerUp(void){
 
     /* Reads from NRF register to make sure we wrote it correctly */
     nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-    if(buffer != data) return 2;
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01PowerDown(void){
+int8_t nrf24l01PowerDown(void){
 
 	uint8_t buffer;
 	uint8_t data;
 
 	/* First, we must read the current settings so we don't overwrite them */
-	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return 1;
+	if( nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	data &= (uint8_t)(~0x02);
 
@@ -504,48 +513,50 @@ uint8_t nrf24l01PowerDown(void){
 
 	/* Reads from NRF register to make sure we wrote it correctly */
 	nrf24l01ReadRegister(NRF24L01_REG_CONFIG, &buffer);
-	if(buffer != data) return 2;
+	if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01ReadSR(uint8_t *status){
+int8_t nrf24l01ReadSR(uint8_t *status){
 
-	uint8_t cmdstatus;
+	int8_t cmdstatus;
 	nrf24l01CSNWrite(0);
 
 	cmdstatus = nrf24l01SpiRead(status, 1, NRF24L01_CONFIG_SPI_READ_TO);
 
 	nrf24l01CSNWrite(1);
 
-	return cmdstatus;
+	if( cmdstatus != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer){
+int8_t nrf24l01ReadRegister(uint8_t reg, uint8_t *buffer){
 
 	if( (reg == NRF24L01_REG_RX_ADDR_P0) || (reg == NRF24L01_REG_RX_ADDR_P1) || (reg == NRF24L01_REG_TX_ADDR) ){
-		if( nrf24l01ReadRegisterMultiple(reg, buffer) ) return 1;
+		if( nrf24l01ReadRegisterMultiple(reg, buffer) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 	else{
-		if( nrf24l01ReadRegisterSingle(reg, buffer) ) return 1;
+		if( nrf24l01ReadRegisterSingle(reg, buffer) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer){
+int8_t nrf24l01WriteRegister(uint8_t reg, uint8_t *buffer){
 
 	if( (reg == NRF24L01_REG_RX_ADDR_P0) || (reg == NRF24L01_REG_RX_ADDR_P1) || (reg == NRF24L01_REG_TX_ADDR) ){
-		if( nrf24l01WriteRegisterMultiple(reg, buffer) ) return 1;
+		if( nrf24l01WriteRegisterMultiple(reg, buffer) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 	else{
-		if( nrf24l01WriteRegisterSingle(reg, buffer) ) return 1;
+		if( nrf24l01WriteRegisterSingle(reg, buffer) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 	}
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01StatusClear(void){
+int8_t nrf24l01StatusClear(void){
 
 	uint8_t data;
 	uint8_t buffer;
@@ -554,12 +565,12 @@ uint8_t nrf24l01StatusClear(void){
 	nrf24l01WriteRegister(NRF24L01_REG_STATUS, &data);
 	nrf24l01ReadRegister(NRF24L01_REG_STATUS, &buffer);
 
-	if(buffer & data) return 1;
+	if(buffer & data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01StatusClearMaxRT(void){
+int8_t nrf24l01StatusClearMaxRT(void){
 
 	uint8_t data;
 	uint8_t buffer;
@@ -568,12 +579,12 @@ uint8_t nrf24l01StatusClearMaxRT(void){
 	nrf24l01WriteRegister(NRF24L01_REG_STATUS, &data);
 	nrf24l01ReadRegister(NRF24L01_REG_STATUS, &buffer);
 
-	if(buffer & data) return 1;
+	if(buffer & data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01StatusClearTXDS(void){
+int8_t nrf24l01StatusClearTXDS(void){
 
 	uint8_t data;
 	uint8_t buffer;
@@ -582,12 +593,12 @@ uint8_t nrf24l01StatusClearTXDS(void){
 	nrf24l01WriteRegister(NRF24L01_REG_STATUS, &data);
 	nrf24l01ReadRegister(NRF24L01_REG_STATUS, &buffer);
 
-	if(buffer & data) return 1;
+	if(buffer & data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01StatusClearRXDR(void){
+int8_t nrf24l01StatusClearRXDR(void){
 
 	uint8_t data;
 	uint8_t buffer;
@@ -596,14 +607,14 @@ uint8_t nrf24l01StatusClearRXDR(void){
 	nrf24l01WriteRegister(NRF24L01_REG_STATUS, &data);
 	nrf24l01ReadRegister(NRF24L01_REG_STATUS, &buffer);
 
-	if(buffer & data) return 1;
+	if(buffer & data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01FlushTX(void){
+int8_t nrf24l01FlushTX(void){
 
-	uint8_t status;
+	int8_t status;
 	uint8_t command;
 
 	command = 0xE1;
@@ -614,13 +625,15 @@ uint8_t nrf24l01FlushTX(void){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01FlushRX(void){
+int8_t nrf24l01FlushRX(void){
 
 	uint8_t command;
-	uint8_t status;
+	int8_t status;
 
 	command = 0xE2;
 
@@ -630,23 +643,25 @@ uint8_t nrf24l01FlushRX(void){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
-}
-//-----------------------------------------------------------------------------
-uint8_t nrf24l01Pend(uint32_t ticks){
-
-	if( nrf24l01IrqPend(ticks) != 0 ) return 1;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01TXPower(uint8_t power){
+int8_t nrf24l01Pend(uint32_t ticks){
+
+	if( nrf24l01IrqPend(ticks) != 0 ) return NRF24L01_CMD_STATUS_PEND_TO;
+
+	return 0;
+}
+//-----------------------------------------------------------------------------
+int8_t nrf24l01TXPower(uint8_t power){
 
     uint8_t buffer;
     uint8_t data;
 
     /* First, we must read the current settings so we don't overwrite them */
-    if( nrf24l01ReadRegister(NRF24L01_REG_RF_SETUP, &data) ) return 1;
+    if( nrf24l01ReadRegister(NRF24L01_REG_RF_SETUP, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     data &= (uint8_t)~(0x03 << 1);
     data |= (uint8_t)(power << 1);
@@ -656,9 +671,71 @@ uint8_t nrf24l01TXPower(uint8_t power){
 
     /* Reads from NRF register to make sure we wrote it correctly */
     nrf24l01ReadRegister(NRF24L01_REG_RF_SETUP, &buffer);
-    if(buffer != data) return 2;
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     return 0;
+}
+//-----------------------------------------------------------------------------
+int8_t nrf24l01SetDPL(uint8_t dpl){
+
+    uint8_t buffer;
+    uint8_t data;
+
+    /* First, we must read the current settings so we don't overwrite them */
+    if( nrf24l01ReadRegister(NRF24L01_REG_FEATURE, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+    data &= (uint8_t)( ~(1 << 2) );
+    data |= (uint8_t)( (dpl & 0x01U) << 2U );
+
+    /* Writes to feature register */
+    nrf24l01WriteRegister(NRF24L01_REG_FEATURE, &data);
+
+    /* Reads from feature register to make sure we wrote it correctly */
+    nrf24l01ReadRegister(NRF24L01_REG_FEATURE, &buffer);
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+    return 0;
+}
+//-----------------------------------------------------------------------------
+int8_t nrf24l01SetDynPD(uint8_t dpl){
+
+    uint8_t buffer;
+    uint8_t data;
+
+    /* First, we must read the current settings so we don't overwrite them */
+    if( nrf24l01ReadRegister(NRF24L01_REG_DYNPD, &data) ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+    data &= (uint8_t)( ~(1) );
+    data |= (uint8_t)(dpl & 0x01U);
+
+    /* Writes to DYNPD register */
+    nrf24l01WriteRegister(NRF24L01_REG_DYNPD, &data);
+
+    /* Reads from DYNPD register to make sure we wrote it correctly */
+    nrf24l01ReadRegister(NRF24L01_REG_DYNPD, &buffer);
+    if(buffer != data) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
+}
+//-----------------------------------------------------------------------------
+int8_t nrf24l01ReadRXPayloadWidth(void){
+
+	int8_t status;
+	uint8_t command;
+	int8_t size;
+
+	command = 0x60;
+
+	nrf24l01CSNWrite(0);
+
+	status = nrf24l01SpiWrite(&command, 1, NRF24L01_CONFIG_SPI_WRITE_TO);
+	status |= nrf24l01SpiRead((uint8_t*)&size, 1, NRF24L01_CONFIG_SPI_READ_TO);
+
+	nrf24l01CSNWrite(1);
+
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return size;
 }
 //-----------------------------------------------------------------------------
 //=============================================================================
@@ -667,9 +744,9 @@ uint8_t nrf24l01TXPower(uint8_t power){
 /*----------------------------- Static functions ----------------------------*/
 //=============================================================================
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
+static int8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 
-	uint8_t status;
+	int8_t status;
 	uint8_t txBuffer[2];
 
     txBuffer[0] = reg;
@@ -683,12 +760,14 @@ static uint8_t nrf24l01ReadRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
+static int8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
-	uint8_t status;
+	int8_t status;
     uint8_t txBuffer[6] = {0x00};
 
 	txBuffer[0] = reg;
@@ -700,12 +779,14 @@ static uint8_t nrf24l01ReadRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
+static int8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 
-	uint8_t status;
+	int8_t status;
     uint8_t txBuffer[2];
 
     txBuffer[0] = reg | 0x20;
@@ -717,12 +798,14 @@ static uint8_t nrf24l01WriteRegisterSingle(uint8_t reg, uint8_t *buffer){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
+static int8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
-	uint8_t status;
+	int8_t status;
 	reg |= 0x20;
 
 	nrf24l01CSNWrite(0);
@@ -732,12 +815,14 @@ static uint8_t nrf24l01WriteRegisterMultiple(uint8_t reg, uint8_t *buffer){
 
 	nrf24l01CSNWrite(1);
 
-	return status;
+	if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
+
+	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
+static int8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 
-	uint8_t status;
+	int8_t status;
     uint8_t command;
 
     nrf24l01CSNWrite(0);
@@ -750,7 +835,7 @@ static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
 
     nrf24l01CSNWrite(1);
 
-    if( status != 0 ) return status;
+    if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     /*
      * A high pulse must be given to CE so transmission can start. This pulse
@@ -765,9 +850,9 @@ static uint8_t nrf24l01TransmitPayload(uint8_t *buffer, uint8_t size){
     return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
+static int8_t nrf24l01ReadRXPayload(uint8_t *buffer, uint8_t size){
 
-	uint8_t status;
+	int8_t status;
     uint8_t txBuffer[2] = {0x00};
 
     nrf24l01CSNWrite(0);
@@ -779,6 +864,8 @@ static uint8_t nrf24l01ReceivePayload(uint8_t *buffer, uint8_t size){
     status |= nrf24l01SpiRead(buffer, size, NRF24L01_CONFIG_SPI_READ_TO);
 
     nrf24l01CSNWrite(1);
+
+    if( status != 0 ) return NRF24L01_CMD_STATUS_SPI_ERROR;
 
     return 0;
 }

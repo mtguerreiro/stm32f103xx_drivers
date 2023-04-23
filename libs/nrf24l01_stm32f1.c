@@ -45,13 +45,13 @@
 /*-------------------------------- Prototypes -------------------------------*/
 //=============================================================================
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1InitializeHw(void);
+static int8_t nrf24l01Stm32F1InitializeHw(void);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1InitializeSw(void);
+static int8_t nrf24l01Stm32F1InitializeSw(void);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1SpiWrite(uint8_t *buffer, uint16_t size, uint32_t to);
+static int8_t nrf24l01Stm32F1SpiWrite(uint8_t *buffer, uint16_t size, uint32_t to);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1SpiRead(uint8_t *buffer, uint16_t size, uint32_t to);
+static int8_t nrf24l01Stm32F1SpiRead(uint8_t *buffer, uint16_t size, uint32_t to);
 //-----------------------------------------------------------------------------
 static void nrf24l01Stm32F1CSNWrite(uint8_t level);
 //-----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ static void nrf24l01Stm32F1DelayMicroSec(uint32_t delay);
 //-----------------------------------------------------------------------------
 static void nrf24l01Stm32F1IrqClear(void);
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1IrqPend(uint32_t to);
+static int8_t nrf24l01Stm32F1IrqPend(uint32_t to);
 //-----------------------------------------------------------------------------
 //=============================================================================
 
@@ -75,7 +75,7 @@ SemaphoreHandle_t nrf24l01Semaphore;
 /*-------------------------------- Functions --------------------------------*/
 //=============================================================================
 //-----------------------------------------------------------------------------
-uint8_t nrf24l01Stm32F1Initialize(void){
+int8_t nrf24l01Stm32F1Initialize(void){
 
 	nrf24l01Stm32F1InitializeHw();
 	nrf24l01Stm32F1InitializeSw();
@@ -94,7 +94,7 @@ uint8_t nrf24l01Stm32F1Initialize(void){
 /*----------------------------- Static functions ----------------------------*/
 //=============================================================================
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1InitializeHw(void){
+static int8_t nrf24l01Stm32F1InitializeHw(void){
 
 	/* SPI */
 	spihlInitialize(NRF24L01_STM32F1_CONFIG_SPI, SPIHL_BR_CLK_DIV_128, SPIHL_POLL_PHAF);
@@ -133,25 +133,25 @@ static uint8_t nrf24l01Stm32F1InitializeHw(void){
 	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1InitializeSw(void){
+static int8_t nrf24l01Stm32F1InitializeSw(void){
 
 	nrf24l01Semaphore = xSemaphoreCreateBinary();
-	if(nrf24l01Semaphore == NULL) return 2;
+	if(nrf24l01Semaphore == NULL) return -1;
 	xSemaphoreTake(nrf24l01Semaphore, 0);
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1SpiWrite(uint8_t *buffer, uint16_t size, uint32_t to){
+static int8_t nrf24l01Stm32F1SpiWrite(uint8_t *buffer, uint16_t size, uint32_t to){
 
-	if( spihlWriteBare(NRF24L01_STM32F1_CONFIG_SPI, buffer, size, to) != 0 ) return 1;
+	if( spihlWriteBare(NRF24L01_STM32F1_CONFIG_SPI, buffer, size, to) != 0 ) return -1;
 
 	return 0;
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1SpiRead(uint8_t *buffer, uint16_t size, uint32_t to){
+static int8_t nrf24l01Stm32F1SpiRead(uint8_t *buffer, uint16_t size, uint32_t to){
 
-	if( spihlReadBare(NRF24L01_STM32F1_CONFIG_SPI, buffer, size, to) != 0 ) return 1;
+	if( spihlReadBare(NRF24L01_STM32F1_CONFIG_SPI, buffer, size, to) != 0 ) return -1;
 
 	return 0;
 }
@@ -182,9 +182,9 @@ static void nrf24l01Stm32F1IrqClear(void){
 	xSemaphoreTake( nrf24l01Semaphore, 0 );
 }
 //-----------------------------------------------------------------------------
-static uint8_t nrf24l01Stm32F1IrqPend(uint32_t to){
+static int8_t nrf24l01Stm32F1IrqPend(uint32_t to){
 
-	if( xSemaphoreTake( nrf24l01Semaphore, to ) != pdPASS ) return 1;
+	if( xSemaphoreTake( nrf24l01Semaphore, to ) != pdPASS ) return -1;
 
 	return 0;
 }
